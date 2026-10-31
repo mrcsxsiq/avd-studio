@@ -53,4 +53,12 @@ public protocol DeviceService: Sendable {
     func setupPlan(locations: Locations) async -> SetupPlan
     /// Runs one step to completion. Throws only when the command cannot be started at all.
     func runSetupStep(_ step: SetupStep, locations: Locations) async throws -> SetupStepResult
+    /// System images installed in the SDK, newest first. Never throws.
+    func installedSystemImages(locations: Locations) async -> [SystemImage]
+    /// Hardware definitions (`avdmanager list device`). Throws when avdmanager or Java is missing.
+    func deviceProfiles(locations: Locations) async throws -> [DeviceProfile]
+    /// A message when the name cannot be used for a new device, or nil when it can.
+    func validateDeviceName(_ name: String, locations: Locations) async -> String?
+    func createDevice(_ request: CreateDeviceRequest, locations: Locations) async throws
+    func deleteDevice(_ device: VirtualDevice, locations: Locations) async throws
 }

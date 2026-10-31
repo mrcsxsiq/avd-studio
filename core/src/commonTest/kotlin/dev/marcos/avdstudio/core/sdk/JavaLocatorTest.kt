@@ -1,6 +1,7 @@
 package dev.marcos.avdstudio.core.sdk
 
 import dev.marcos.avdstudio.core.HOME
+import dev.marcos.avdstudio.core.environment.StaticEnvironment
 import dev.marcos.avdstudio.core.fakeEnvironment
 import dev.marcos.avdstudio.core.touch
 import okio.fakefilesystem.FakeFileSystem
@@ -59,5 +60,16 @@ class JavaLocatorTest {
 
         assertEquals(JavaSource.HOMEBREW, java?.source)
         assertEquals("/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home", java?.home)
+    }
+
+    @Test
+    fun aSystemRootRedirectsTheSystemWideLocations() {
+        fs.touch("/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home/bin/java")
+        fs.touch("/sandbox/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home/bin/java")
+        val sandboxed = StaticEnvironment(emptyMap(), HOME, "/sandbox")
+
+        val java = JavaLocator(fs, sandboxed).locate()
+
+        assertEquals("/sandbox/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home", java?.home)
     }
 }

@@ -28,6 +28,9 @@ struct DeviceActions: View {
         }
         .disabled(device.path.isEmpty)
         Button("Copy Name", systemImage: "doc.on.doc") { Clipboard.copy(device.id) }
+        Divider()
+        Button("Delete…", systemImage: "trash", role: .destructive) { model.pendingDelete = device }
+            .disabled(state != .idle)
     }
 }
 

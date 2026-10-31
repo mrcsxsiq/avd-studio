@@ -1,11 +1,13 @@
 package dev.marcos.avdstudio.core
 
+import dev.marcos.avdstudio.core.avd.CreateAvdRequest
 import dev.marcos.avdstudio.core.doctor.CheckStatus
 import dev.marcos.avdstudio.core.emulator.EmulatorLaunchOptions
 import dev.marcos.avdstudio.core.process.Command
 import dev.marcos.avdstudio.core.process.CommandException
 import dev.marcos.avdstudio.core.process.CommandResult
 import dev.marcos.avdstudio.core.process.CommandRunner
+import okio.Path.Companion.toPath
 import okio.fakefilesystem.FakeFileSystem
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -19,8 +21,12 @@ private class RecordingRunner : CommandRunner {
     var psOutput = ""
     var killExitCode = 0
 
+    /** Scripted answers for any other executable (avdmanager in the create/delete tests). */
+    var onRun: ((Command) -> CommandResult)? = null
+
     override fun run(command: Command): CommandResult {
         executed += command
+        onRun?.let { return it(command) }
         return when (command.executable) {
             "/bin/ps" -> CommandResult(0, psOutput, "")
             "/opt/homebrew/bin/brew" -> CommandResult(0, "brewed", "")
@@ -221,5 +227,203 @@ class AvdStudioCoreTest {
         assertEquals("1", executed.environment["NONINTERACTIVE"])
         assertEquals("/opt/homebrew/share/android-commandlinetools", executed.environment["ANDROID_HOME"])
         assertTrue(executed.environment.getValue("PATH").startsWith("/opt/homebrew/bin:"))
+    }
+
+    // MARK: Creating and deleting devices
+
+    private val avdManager get() = "$sdk/cmdline-tools/latest/bin/avdmanager"
+    private val avdHome get() = "$HOME/.android/avd"
+
+    private fun readyForAvdManager(): AvdStudioCore {
+        fs.installSdk(sdk)
+        fs.touch("/jdk/bin/java")
+        return core("JAVA_HOME" to "/jdk")
+    }
+
+    private val playImage =
+        dev.marcos.avdstudio.core.catalog.SystemImage(
+            packagePath = "system-images;android-36;google_apis_playstore;arm64-v8a",
+            directory = "system-images/android-36/google_apis_playstore/arm64-v8a",
+            apiLevel =
+                dev.marcos.avdstudio.core.avd
+                    .ApiLevel(36),
+            codeName = null,
+            tags = listOf("google_apis_playstore"),
+            tagDisplay = "Google Play",
+            abi = "arm64-v8a",
+        )
+    private val pixel9 =
+        dev.marcos.avdstudio.core.catalog.DeviceProfile(
+            "pixel_9",
+            "Pixel 9",
+            "Google",
+            null,
+            dev.marcos.avdstudio.core.avd.FormFactor.PHONE,
+        )
+
+    /** What a real `avdmanager create avd` leaves behind (trimmed). */
+    private fun fakeAvdManagerThatCreates(): (Command) -> CommandResult =
+        { command ->
+            val name = command.arguments[command.arguments.indexOf("--name") + 1]
+            fs.touch("$avdHome/$name.ini", "avd.ini.encoding=UTF-8\npath=$avdHome/$name.avd\ntarget=android-36\n")
+            fs.touch(
+                "$avdHome/$name.avd/config.ini",
+                "PlayStore.enabled=no\nabi.type=arm64-v8a\nhw.device.name=pixel_9\nhw.gpu.enabled=no\nhw.keyboard=no\n" +
+                    "hw.ramSize=2G\ndisk.dataPartition.size=10G\nimage.sysdir.1=system-images/android-36/google_apis_playstore/arm64-v8a/\ntag.id=google_apis_playstore\n",
+            )
+            CommandResult(0, "Loading local repository...\nAuto-selecting single ABI arm64-v8a\n", "")
+        }
+
+    @Test
+    fun createRunsAvdManagerWithTheRightArgumentsAndEnvironment() {
+        val core = readyForAvdManager()
+        runner.onRun = fakeAvdManagerThatCreates()
+
+        val folder =
+            core.createAvd(
+                CreateAvdRequest(name = "Pixel_9_API_36", systemImage = playImage, device = pixel9, sdCard = "512M"),
+            )
+
+        val command = runner.executed.single { it.executable == avdManager }
+        assertEquals(
+            listOf(
+                "create",
+                "avd",
+                "--name",
+                "Pixel_9_API_36",
+                "--package",
+                playImage.packagePath,
+                "--device",
+                "pixel_9",
+                "--sdcard",
+                "512M",
+            ),
+            command.arguments,
+        )
+        assertEquals("/jdk", command.environment["JAVA_HOME"])
+        assertEquals(avdHome, command.environment["ANDROID_AVD_HOME"])
+        assertEquals("$avdHome/Pixel_9_API_36.avd", folder)
+    }
+
+    @Test
+    fun createFixesUpConfigLikeAndroidStudioDoes() {
+        val core = readyForAvdManager()
+        fs.touch("$sdk/skins/pixel_9/layout")
+        runner.onRun = fakeAvdManagerThatCreates()
+
+        core.createAvd(
+            CreateAvdRequest(
+                name = "Pixel_9_API_36",
+                displayName = "My Pixel",
+                systemImage = playImage,
+                device = pixel9,
+                ramMegabytes = 4096,
+                storage = "16G",
+            ),
+        )
+
+        val config =
+            dev.marcos.avdstudio.core.internal.IniParser.parse(
+                fs.read("$avdHome/Pixel_9_API_36.avd/config.ini".toPath()) { readUtf8() },
+            )
+        assertEquals("true", config["PlayStore.enabled"])
+        assertEquals("yes", config["hw.gpu.enabled"])
+        assertEquals("auto", config["hw.gpu.mode"])
+        assertEquals("yes", config["hw.keyboard"])
+        assertEquals("My Pixel", config["avd.ini.displayname"])
+        assertEquals("4096", config["hw.ramSize"])
+        assertEquals("16G", config["disk.dataPartition.size"])
+        assertEquals("pixel_9", config["skin.name"])
+        assertEquals("$sdk/skins/pixel_9", config["skin.path"])
+        assertEquals("yes", config["showDeviceFrame"])
+        assertEquals("pixel_9", config["hw.device.name"], "untouched keys survive")
+        // The new device is visible to the reader right away.
+        val created = core.listAvds().single()
+        assertEquals("My Pixel", created.displayName)
+        assertTrue(created.hasPlayStore)
+    }
+
+    @Test
+    fun createTreatsErrorTextAsFailureEvenWithExitCodeZero() {
+        val core = readyForAvdManager()
+        runner.onRun = { CommandResult(0, "Error: No device found matching --device nope.\nnull\n", "") }
+
+        val error =
+            assertFailsWith<CommandException> { core.createAvd(CreateAvdRequest(name = "X", systemImage = playImage, device = pixel9)) }
+
+        assertEquals("Could not create X: No device found matching --device nope.", error.message)
+    }
+
+    @Test
+    fun createRefusesBadOrDuplicateNamesWithoutRunningAnything() {
+        val core = readyForAvdManager()
+        fs.touch("$avdHome/Taken.ini", "path=$avdHome/Taken.avd")
+        fs.touch("$avdHome/Taken.avd/config.ini", "")
+
+        assertFailsWith<CommandException> { core.createAvd(CreateAvdRequest(name = "has space", systemImage = playImage, device = pixel9)) }
+        assertFailsWith<CommandException> { core.createAvd(CreateAvdRequest(name = "taken", systemImage = playImage, device = pixel9)) }
+        assertTrue(runner.executed.none { it.executable == avdManager })
+        assertEquals("A device called taken already exists.", core.validateAvdName("taken"))
+        assertEquals(null, core.validateAvdName("Fresh_1"))
+    }
+
+    @Test
+    fun createNeedsAvdManagerAndJava() {
+        fs.installSdk(sdk)
+
+        val error =
+            assertFailsWith<CommandException> { core().createAvd(CreateAvdRequest(name = "X", systemImage = playImage, device = pixel9)) }
+
+        assertTrue(error.message.orEmpty().contains("Java"))
+    }
+
+    @Test
+    fun deleteRunsAvdManagerAndRemovesLeftoverFiles() {
+        val core = readyForAvdManager()
+        fs.touch("$avdHome/Old.ini", "path=$avdHome/Old.avd")
+        fs.touch("$avdHome/Old.avd/config.ini", "")
+        fs.touch("$avdHome/Old.avd/userdata.img", "x")
+        // avdmanager refuses to load devices with a missing image; we clean up anyway.
+        runner.onRun = { CommandResult(1, "", "Error: There is no Android Virtual Device named 'Old'.") }
+
+        core.deleteAvd("Old")
+
+        assertEquals(listOf("delete", "avd", "--name", "Old"), runner.executed.single { it.executable == avdManager }.arguments)
+        assertFalse(fs.exists("$avdHome/Old.ini".toPath()))
+        assertFalse(fs.exists("$avdHome/Old.avd".toPath()))
+    }
+
+    @Test
+    fun deleteRefusesARunningDevice() {
+        val core = readyForAvdManager()
+        runner.psOutput = "77 /x/qemu-system-aarch64 -avd Busy"
+
+        val error = assertFailsWith<CommandException> { core.deleteAvd("Busy") }
+
+        assertEquals("Busy is running. Stop it first.", error.message)
+        assertTrue(runner.executed.none { it.executable == avdManager })
+    }
+
+    @Test
+    fun deviceProfilesComeFromAvdManagerListDevice() {
+        val core = readyForAvdManager()
+        runner.onRun = { CommandResult(0, "id: 54 or \"pixel_9\"\n    Name: Pixel 9\n    OEM : Google\n---------\n", "") }
+
+        val profiles = core.deviceProfiles()
+
+        assertEquals(listOf("pixel_9"), profiles.map { it.id })
+        assertEquals(listOf("list", "device"), runner.executed.single { it.executable == avdManager }.arguments)
+    }
+
+    @Test
+    fun installedSystemImagesAreReadFromTheSdkFolder() {
+        fs.installSdk(sdk)
+        fs.touch("$sdk/system-images/android-36/google_apis_playstore/arm64-v8a/system.img")
+
+        assertEquals(
+            listOf("system-images;android-36;google_apis_playstore;arm64-v8a"),
+            core().installedSystemImages().map { it.packagePath },
+        )
+        assertTrue(core().installedSystemImages("/nowhere").isEmpty())
     }
 }

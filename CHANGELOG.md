@@ -38,6 +38,12 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
 - `avdstudio setup` does the same from the terminal (`--dry-run`, `--script`, `--accept-licenses`).
 - Settings to choose the SDK folder and the virtual-device folder (for example on an external drive),
   show or hide the menu bar item, and run diagnostics.
+- Create and delete virtual devices. The New Device sheet (⌘N, toolbar, menu bar, empty state) takes a type, a
+  hardware definition, one of the installed system images, a name, RAM, storage and an SD card, and enables
+  Google Play, the GPU and the device frame like Android Studio does. Delete (context menu) asks first and
+  refuses while the device is running. CLI: `avdstudio create`, `delete`, `images` and `devices`.
+- The menu bar list shows every device with a play button (stopped) or a stop button (running) and a
+  New Device… entry; clicking a row starts it right away.
 - Software update: Settings and the app menu ("Check for Updates…") show the installed version next to the
   new one with its release notes, then download the DMG with SHA-256 verification. A native notification
   announces a new release (once per version), and you can turn automatic checks off in Settings. Copies

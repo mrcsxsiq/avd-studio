@@ -4,13 +4,19 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.core.subcommands
+import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.groups.OptionGroup
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.options.versionOption
+import com.github.ajalt.clikt.parameters.types.choice
+import com.github.ajalt.clikt.parameters.types.int
 import dev.marcos.avdstudio.core.AvdStudioCore
+import dev.marcos.avdstudio.core.avd.CreateAvdRequest
+import dev.marcos.avdstudio.core.avd.FormFactor
 import dev.marcos.avdstudio.core.emulator.EmulatorLaunchOptions
 import dev.marcos.avdstudio.core.environment.SystemEnvironment
 import dev.marcos.avdstudio.core.process.CommandException
@@ -33,6 +39,10 @@ class AvdStudioCli(
             StartCommand(coreFactory),
             DoctorCommand(coreFactory),
             SetupCommand(coreFactory),
+            ImagesCommand(coreFactory),
+            DevicesCommand(coreFactory),
+            CreateCommand(coreFactory),
+            DeleteCommand(coreFactory),
             SdkPathCommand(coreFactory),
         )
     }
@@ -255,5 +265,170 @@ class SetupCommand(
         val report = core.doctor(sdkPath, location.avdHome)
         echo(Output.doctor(report))
         if (!report.isHealthy) throw ProgramResult(1)
+    }
+}
+
+private val TYPE_CHOICES =
+    mapOf(
+        "phone" to FormFactor.PHONE,
+        "foldable" to FormFactor.FOLDABLE,
+        "tablet" to FormFactor.TABLET,
+        "wear" to FormFactor.WEAR_OS,
+        "tv" to FormFactor.TV,
+        "automotive" to FormFactor.AUTOMOTIVE,
+        "desktop" to FormFactor.DESKTOP,
+        "xr" to FormFactor.XR,
+    )
+
+class ImagesCommand(
+    private val coreFactory: CoreFactory,
+) : CliktCommand(name = "images") {
+    private val location by LocationOptions()
+    private val json by option("--json", help = "Print machine-readable JSON.").flag()
+
+    override fun help(context: Context) = "List the system images installed in the SDK (what `create --image` accepts)."
+
+    override fun helpEpilog(context: Context) =
+        "To install more, run `sdkmanager --list | grep system-images` and then `sdkmanager \"<package>\"`."
+
+    override fun run() {
+        val images = coreFactory().installedSystemImages(location.sdkPath)
+        when {
+            json -> {
+                echo(Output.json.encodeToString(images.map { it.toDto() }))
+            }
+
+            images.isEmpty() -> {
+                echo(
+                    "No system images installed. Install one with `sdkmanager \"system-images;android-36;google_apis_playstore;arm64-v8a\"`.",
+                )
+            }
+
+            else -> {
+                echo(Output.imageTable(images))
+            }
+        }
+    }
+}
+
+class DevicesCommand(
+    private val coreFactory: CoreFactory,
+) : CliktCommand(name = "devices") {
+    private val location by LocationOptions()
+    private val type by option("--type", help = "Only this kind of device.").choice(*TYPE_CHOICES.keys.toTypedArray())
+    private val json by option("--json", help = "Print machine-readable JSON.").flag()
+
+    override fun help(context: Context) = "List the hardware definitions avdmanager knows (what `create --device` accepts)."
+
+    override fun run() {
+        val profiles =
+            try {
+                coreFactory().deviceProfiles(location.sdkPath)
+            } catch (error: CommandException) {
+                echo(error.message, err = true)
+                throw ProgramResult(1)
+            }.filter { type == null || it.formFactor == TYPE_CHOICES.getValue(type!!) }
+        if (json) echo(Output.json.encodeToString(profiles.map { it.toDto() })) else echo(Output.profileTable(profiles))
+    }
+}
+
+class CreateCommand(
+    private val coreFactory: CoreFactory,
+) : CliktCommand(name = "create") {
+    private val location by LocationOptions()
+    private val name by option(
+        "--name",
+        "-n",
+        metavar = "NAME",
+        help = "Identifier: letters, digits, dots, dashes, underscores.",
+    ).required()
+    private val image by option("--image", "-i", metavar = "PACKAGE", help = "A system image package from `avdstudio images`.").required()
+    private val device by option("--device", "-d", metavar = "ID", help = "A hardware definition id from `avdstudio devices`.").required()
+    private val displayName by option("--display-name", metavar = "TEXT", help = "Name shown in the app (default: the name with spaces).")
+    private val ram by option("--ram", metavar = "MB", help = "RAM in megabytes (default: the definition's).").int()
+    private val storage by option("--storage", metavar = "SIZE", help = "Internal storage, e.g. 16G (default: 10G).")
+    private val sdCard by option("--sdcard", metavar = "SIZE", help = "SD card size, e.g. 512M (default: none).")
+
+    override fun help(context: Context) = "Create a virtual device."
+
+    override fun helpEpilog(context: Context) =
+        """
+        Examples:
+          avdstudio create -n Pixel_9_API_36 -i "system-images;android-36;google_apis_playstore;arm64-v8a" -d pixel_9
+          avdstudio create -n TV -i "system-images;android-36;android-tv;arm64-v8a" -d tv_1080p --ram 4096 --storage 16G
+
+        Like Android Studio, the GPU, keyboard and device frame are enabled and Google Play is switched on
+        when the image has it.
+        """.trimIndent()
+
+    override fun run() {
+        val core = coreFactory()
+        try {
+            val systemImage =
+                core.installedSystemImages(location.sdkPath).firstOrNull { it.packagePath == image }
+                    ?: throw CommandException(
+                        "No installed system image called \"$image\". Run `avdstudio images` to see what is available.",
+                    )
+            val profile =
+                core.deviceProfiles(location.sdkPath).firstOrNull { it.id == device }
+                    ?: throw CommandException(
+                        "No hardware definition called \"$device\". Run `avdstudio devices` to see what is available.",
+                    )
+            val request =
+                CreateAvdRequest(
+                    name = name,
+                    displayName = displayName,
+                    systemImage = systemImage,
+                    device = profile,
+                    ramMegabytes = ram,
+                    storage = storage,
+                    sdCard = sdCard,
+                )
+            val path = core.createAvd(request, location.sdkPath, location.avdHome)
+            echo(Output.success("Created $name") + " in $path")
+            echo(Output.dim("Start it with: avdstudio start $name"))
+        } catch (error: CommandException) {
+            echo(error.message, err = true)
+            throw ProgramResult(1)
+        }
+    }
+}
+
+class DeleteCommand(
+    private val coreFactory: CoreFactory,
+) : CliktCommand(name = "delete") {
+    private val location by LocationOptions()
+    private val name by argument(help = "Name of the virtual device (see `avdstudio list`).")
+    private val yes by option("--yes", "-y", help = "Do not ask for confirmation.").flag()
+
+    override fun help(context: Context) = "Delete a virtual device and everything stored on it."
+
+    override fun run() {
+        val core = coreFactory()
+        if (core.listAvds(location.sdkPath, location.avdHome).none { it.name == name }) {
+            echo("No virtual device named '$name'. Run `avdstudio list` to see what is available.", err = true)
+            throw ProgramResult(1)
+        }
+        if (!yes) {
+            if (!currentContext.terminal.terminalInfo.interactive) {
+                echo("Deleting is permanent. Run again with --yes to confirm.", err = true)
+                throw ProgramResult(1)
+            }
+            val confirmed =
+                com.github.ajalt.mordant.terminal
+                    .YesNoPrompt(
+                        "Delete $name and all its data?",
+                        currentContext.terminal,
+                        default = false,
+                    ).ask()
+            if (confirmed != true) throw ProgramResult(1)
+        }
+        try {
+            core.deleteAvd(name, location.sdkPath, location.avdHome)
+            echo(Output.success("Deleted $name."))
+        } catch (error: CommandException) {
+            echo(error.message, err = true)
+            throw ProgramResult(1)
+        }
     }
 }

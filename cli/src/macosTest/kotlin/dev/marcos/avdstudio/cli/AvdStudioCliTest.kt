@@ -30,6 +30,8 @@ class AvdStudioCliTest {
                 StaticEnvironment(
                     mapOf("HOMEBREW_PREFIX" to (root / "homebrew").toString()),
                     root.toString(),
+                    // Keeps the real /Library/Java and Android Studio of this Mac out of every test.
+                    systemRoot = root.toString(),
                 ),
             )
         }
@@ -350,5 +352,186 @@ class AvdStudioCliTest {
         assertContains(result.stderr, "failed (exit 1)")
         assertContains(result.stderr, "No available formula")
         assertContains(result.stderr, "run `avdstudio setup` again")
+    }
+
+    // MARK: images / devices / create / delete
+
+    /** An avdmanager that answers `list device`, and creates/deletes AVD files like the real one. */
+    private fun installFakeAvdManager() {
+        val script =
+            """
+            #!/bin/sh
+            echo "avdmanager ¤*" >> "$root/avdmanager.log"
+            case "¤1 ¤2" in
+              "list device")
+                printf 'Available devices definitions:\nid: 54 or "pixel_9"\n    Name: Pixel 9\n    OEM : Google\n---------\nid: 69 or "tv_4k"\n    Name: Television (4K)\n    OEM : Google\n    Tag : android-tv\n---------\n';;
+              "create avd")
+                name=""; pkg=""
+                while [ ¤# -gt 0 ]; do case "¤1" in --name) name="¤2"; shift;; --package) pkg="¤2"; shift;; esac; shift; done
+                dir="¤ANDROID_AVD_HOME/¤name.avd"; mkdir -p "¤dir"
+                printf 'avd.ini.encoding=UTF-8\npath=%s\ntarget=android-36\n' "¤dir" > "¤ANDROID_AVD_HOME/¤name.ini"
+                printf 'PlayStore.enabled=no\nhw.device.name=pixel_9\nimage.sysdir.1=%s/\ntag.id=google_apis_playstore\nhw.gpu.enabled=no\n' "¤(echo "¤pkg" | tr ';' '/')" > "¤dir/config.ini"
+                echo "Auto-selecting single ABI arm64-v8a";;
+              "delete avd")
+                name=""; while [ ¤# -gt 0 ]; do case "¤1" in --name) name="¤2"; shift;; esac; shift; done
+                rm -rf "¤ANDROID_AVD_HOME/¤name.avd" "¤ANDROID_AVD_HOME/¤name.ini"; echo "AVD '¤name' deleted.";;
+            esac
+            """.trimIndent().replace('¤', '$')
+        executable(sdk / "cmdline-tools/latest/bin/avdmanager", script)
+    }
+
+    private val playImage = "system-images;android-36;google_apis_playstore;arm64-v8a"
+
+    private fun installImage(
+        platform: String,
+        tag: String,
+        abi: String,
+        properties: String,
+    ) {
+        write(sdk / "system-images/$platform/$tag/$abi/system.img")
+        write(sdk / "system-images/$platform/$tag/$abi/source.properties", properties)
+    }
+
+    private fun readyToCreate() {
+        installSdk()
+        installJava()
+        installFakeAvdManager()
+        fs.createDirectories(avdHome)
+        installImage(
+            "android-36",
+            "google_apis_playstore",
+            "arm64-v8a",
+            "AndroidVersion.ApiLevel=36\nSystemImage.TagId=google_apis_playstore\nSystemImage.TagDisplay=Google Play\nSystemImage.Abi=arm64-v8a\n",
+        )
+        installImage(
+            "android-34",
+            "google_apis",
+            "x86_64",
+            "AndroidVersion.ApiLevel=34\nSystemImage.TagId=google_apis\nSystemImage.TagDisplay=Google APIs\nSystemImage.Abi=x86_64\n",
+        )
+    }
+
+    @Test
+    fun imagesListsInstalledSystemImagesNewestFirst() {
+        readyToCreate()
+
+        val result = cli.test(arrayOf("images") + locations)
+
+        assertEquals(0, result.statusCode)
+        assertContains(result.stdout, "ANDROID")
+        assertTrue(result.stdout.indexOf("Android 16 (API 36)") < result.stdout.indexOf("Android 14 (API 34)"))
+        assertContains(result.stdout, "x86_64 (slow)")
+        assertContains(result.stdout, playImage)
+        assertContains(cli.test(arrayOf("images", "--json") + locations).stdout, "\"package\": \"$playImage\"")
+    }
+
+    @Test
+    fun imagesExplainsHowToInstallOneWhenThereAreNone() {
+        installSdk()
+
+        assertContains(cli.test(arrayOf("images") + locations).stdout, "No system images installed")
+    }
+
+    @Test
+    fun devicesListsAndFiltersHardwareDefinitions() {
+        readyToCreate()
+
+        val all = cli.test(arrayOf("devices") + locations)
+        val tv = cli.test(arrayOf("devices", "--type", "tv") + locations)
+
+        assertEquals(0, all.statusCode)
+        assertContains(all.stdout, "pixel_9")
+        assertContains(all.stdout, "Television (4K)")
+        assertContains(tv.stdout, "tv_4k")
+        assertFalse(tv.stdout.contains("pixel_9"))
+        assertContains(cli.test(arrayOf("devices", "--json", "--type", "phone") + locations).stdout, "\"type\": \"Phone\"")
+    }
+
+    @Test
+    fun devicesFailsClearlyWithoutJava() {
+        installSdk()
+        installFakeAvdManager()
+
+        val result = cli.test(arrayOf("devices") + locations)
+
+        assertEquals(1, result.statusCode)
+        assertContains(result.stderr, "Java")
+    }
+
+    @Test
+    fun createMakesADeviceThatListShowsRightAway() {
+        readyToCreate()
+
+        val result =
+            cli.test(
+                arrayOf(
+                    "create",
+                    "-n",
+                    "Pixel_9_API_36",
+                    "-i",
+                    playImage,
+                    "-d",
+                    "pixel_9",
+                    "--display-name",
+                    "My Pixel",
+                    "--ram",
+                    "4096",
+                    "--sdcard",
+                    "512M",
+                ) +
+                    locations,
+            )
+
+        assertEquals(0, result.statusCode, result.stderr)
+        assertContains(result.stdout, "Created Pixel_9_API_36")
+        assertContains(result.stdout, "avdstudio start Pixel_9_API_36")
+        val log = fs.read(root / "avdmanager.log") { readUtf8() }
+        assertContains(log, "create avd --name Pixel_9_API_36 --package $playImage --device pixel_9 --sdcard 512M")
+        val config = fs.read(avdHome / "Pixel_9_API_36.avd/config.ini") { readUtf8() }
+        assertContains(config, "PlayStore.enabled=true")
+        assertContains(config, "hw.gpu.enabled=yes")
+        assertContains(config, "hw.ramSize=4096")
+        assertContains(config, "avd.ini.displayname=My Pixel")
+        val list = cli.test(arrayOf("list", "--json") + locations).stdout
+        assertContains(list, "\"displayName\": \"My Pixel\"")
+        assertContains(list, "\"playStore\": true")
+    }
+
+    @Test
+    fun createRejectsUnknownImagesDevicesAndTakenNames() {
+        readyToCreate()
+
+        val badImage =
+            cli.test(arrayOf("create", "-n", "A", "-i", "system-images;android-99;default;arm64-v8a", "-d", "pixel_9") + locations)
+        assertEquals(1, badImage.statusCode)
+        assertContains(badImage.stderr, "avdstudio images")
+
+        val badDevice = cli.test(arrayOf("create", "-n", "A", "-i", playImage, "-d", "flip_phone") + locations)
+        assertEquals(1, badDevice.statusCode)
+        assertContains(badDevice.stderr, "avdstudio devices")
+
+        cli.test(arrayOf("create", "-n", "Taken", "-i", playImage, "-d", "pixel_9") + locations)
+        val taken = cli.test(arrayOf("create", "-n", "taken", "-i", playImage, "-d", "pixel_9") + locations)
+        assertEquals(1, taken.statusCode)
+        assertContains(taken.stderr, "already exists")
+    }
+
+    @Test
+    fun deleteNeedsConfirmationUnlessYesIsGiven() {
+        readyToCreate()
+        cli.test(arrayOf("create", "-n", "Gone", "-i", playImage, "-d", "pixel_9") + locations)
+
+        val refused = cli.test(arrayOf("delete", "Gone") + locations)
+        assertEquals(1, refused.statusCode)
+        assertContains(refused.stderr, "--yes")
+        assertTrue(fs.exists(avdHome / "Gone.ini"))
+
+        val deleted = cli.test(arrayOf("delete", "Gone", "--yes") + locations)
+        assertEquals(0, deleted.statusCode, deleted.stderr)
+        assertContains(deleted.stdout, "Deleted Gone.")
+        assertFalse(fs.exists(avdHome / "Gone.ini"))
+        assertFalse(fs.exists(avdHome / "Gone.avd"))
+
+        assertEquals(1, cli.test(arrayOf("delete", "Gone", "--yes") + locations).statusCode)
     }
 }

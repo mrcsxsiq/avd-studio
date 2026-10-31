@@ -4,9 +4,12 @@ import com.github.ajalt.mordant.rendering.TextColors
 import com.github.ajalt.mordant.rendering.TextStyles
 import dev.marcos.avdstudio.core.avd.Avd
 import dev.marcos.avdstudio.core.avd.AvdHealth
+import dev.marcos.avdstudio.core.catalog.DeviceProfile
+import dev.marcos.avdstudio.core.catalog.SystemImage
 import dev.marcos.avdstudio.core.doctor.CheckStatus
 import dev.marcos.avdstudio.core.doctor.DoctorCheck
 import dev.marcos.avdstudio.core.doctor.DoctorReport
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -57,6 +60,42 @@ internal data class DoctorDto(
     val nextSteps: List<String>,
 )
 
+@Serializable
+internal data class ImageDto(
+    @SerialName("package") val packagePath: String,
+    val api: String?,
+    val androidVersion: String?,
+    val version: String,
+    val tag: String,
+    val abi: String,
+    val playStore: Boolean,
+    val native: Boolean,
+    val family: String,
+)
+
+@Serializable
+internal data class ProfileDto(
+    val id: String,
+    val name: String,
+    val type: String,
+    val manufacturer: String,
+)
+
+internal fun SystemImage.toDto() =
+    ImageDto(
+        packagePath = packagePath,
+        api = apiLevel?.label,
+        androidVersion = apiLevel?.androidVersion,
+        version = versionLabel,
+        tag = tagDisplay,
+        abi = abi,
+        playStore = hasPlayStore,
+        native = isNativeOnAppleSilicon,
+        family = family.name.lowercase(),
+    )
+
+internal fun DeviceProfile.toDto() = ProfileDto(id = id, name = name, type = formFactor.displayName, manufacturer = manufacturer)
+
 internal fun Avd.toDto() =
     AvdDto(
         name = name,
@@ -95,6 +134,32 @@ internal object Output {
             prettyPrint = true
             encodeDefaults = true
         }
+
+    fun imageTable(images: List<SystemImage>): String =
+        table(
+            listOf("ANDROID", "TAG", "ABI", "PACKAGE"),
+            images.map {
+                listOf(
+                    it.versionLabel,
+                    it.tagDisplay,
+                    it.abi + if (it.isNativeOnAppleSilicon) "" else " (slow)",
+                    it.packagePath,
+                )
+            },
+        )
+
+    fun profileTable(profiles: List<DeviceProfile>): String =
+        table(listOf("ID", "NAME", "TYPE", "OEM"), profiles.map { listOf(it.id, it.name, it.formFactor.displayName, it.manufacturer) })
+
+    private fun table(
+        header: List<String>,
+        rows: List<List<String>>,
+    ): String {
+        val widths = header.indices.map { column -> (rows + listOf(header)).maxOf { it[column].length } }
+
+        fun line(cells: List<String>) = cells.indices.joinToString("  ") { cells[it].padEnd(widths[it]) }.trimEnd()
+        return (listOf(TextStyles.bold(line(header))) + rows.map(::line)).joinToString("\n")
+    }
 
     fun avdTable(avds: List<Avd>): String {
         val header = listOf("NAME", "TYPE", "ANDROID", "DEVICE", "SIZE", "STATUS")

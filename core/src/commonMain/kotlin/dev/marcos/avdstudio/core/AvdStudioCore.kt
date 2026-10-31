@@ -1,8 +1,15 @@
 package dev.marcos.avdstudio.core
 
 import dev.marcos.avdstudio.core.avd.Avd
+import dev.marcos.avdstudio.core.avd.AvdCreator
 import dev.marcos.avdstudio.core.avd.AvdHomeLocator
+import dev.marcos.avdstudio.core.avd.AvdNames
 import dev.marcos.avdstudio.core.avd.AvdRepository
+import dev.marcos.avdstudio.core.avd.CreateAvdRequest
+import dev.marcos.avdstudio.core.catalog.DeviceProfile
+import dev.marcos.avdstudio.core.catalog.DeviceProfileCatalog
+import dev.marcos.avdstudio.core.catalog.SystemImage
+import dev.marcos.avdstudio.core.catalog.SystemImageCatalog
 import dev.marcos.avdstudio.core.doctor.Doctor
 import dev.marcos.avdstudio.core.doctor.DoctorReport
 import dev.marcos.avdstudio.core.emulator.EmulatorCommands
@@ -46,6 +53,8 @@ public class AvdStudioCore internal constructor(
     private val avdHomeLocator = AvdHomeLocator(environment)
     private val avdRepository = AvdRepository(fileSystem)
     private val setupPlanner = SetupPlanner(fileSystem, environment)
+    private val systemImageCatalog = SystemImageCatalog(fileSystem)
+    private val avdCreator = AvdCreator(fileSystem, runner)
 
     public fun toolchainStatus(sdkPathOverride: String? = null): ToolchainStatus = sdkLocator.resolve(sdkPathOverride)
 
@@ -149,5 +158,68 @@ public class AvdStudioCore internal constructor(
         val brewBin = setupPlanner.homebrewPath()?.substringBeforeLast('/')
         val path = listOfNotNull(brewBin, toolEnvironment["PATH"]).joinToString(":")
         return runner.run(step.command.copy(environment = toolEnvironment + step.command.environment + ("PATH" to path)))
+    }
+
+    // MARK: Creating and deleting devices
+
+    /** System images installed in the SDK, newest first. Needs no Java. */
+    public fun installedSystemImages(sdkPathOverride: String? = null): List<SystemImage> {
+        val toolchain = toolchainStatus(sdkPathOverride)
+        return if (toolchain.sdkDirectoryExists) systemImageCatalog.installed(toolchain.sdkPath) else emptyList()
+    }
+
+    /** Hardware definitions from `avdmanager list device`. Needs avdmanager and Java. */
+    @Throws(CommandException::class)
+    public fun deviceProfiles(sdkPathOverride: String? = null): List<DeviceProfile> {
+        val (avdManager, environment) = avdManagerOrThrow(sdkPathOverride, null)
+        val result = runner.run(Command(avdManager, listOf("list", "device"), environment))
+        if (!result.isSuccess) {
+            throw CommandException(
+                "avdmanager could not list devices: ${result.standardError.trim().ifEmpty { "exit code ${result.exitCode}" }}",
+            )
+        }
+        return DeviceProfileCatalog.parse(result.standardOutput)
+    }
+
+    /** A message when [name] cannot be used for a new device, or null when it can. */
+    public fun validateAvdName(
+        name: String,
+        avdHomeOverride: String? = null,
+    ): String? = AvdNames.validate(name, listAvds(null, avdHomeOverride).map { it.name })
+
+    /** Creates the device and returns its folder. */
+    @Throws(CommandException::class)
+    public fun createAvd(
+        request: CreateAvdRequest,
+        sdkPathOverride: String? = null,
+        avdHomeOverride: String? = null,
+    ): String {
+        validateAvdName(request.name, avdHomeOverride)?.let { throw CommandException(it) }
+        val (avdManager, environment) = avdManagerOrThrow(sdkPathOverride, avdHomeOverride)
+        return avdCreator.create(request, avdManager, toolchainStatus(sdkPathOverride).sdkPath, avdHome(avdHomeOverride), environment)
+    }
+
+    /** Deletes the device and its files. Refuses while it is running. */
+    @Throws(CommandException::class)
+    public fun deleteAvd(
+        avdName: String,
+        sdkPathOverride: String? = null,
+        avdHomeOverride: String? = null,
+    ) {
+        if (runningEmulators().any { it.avdName == avdName }) throw CommandException("$avdName is running. Stop it first.")
+        val (avdManager, environment) = avdManagerOrThrow(sdkPathOverride, avdHomeOverride)
+        avdCreator.delete(avdName, avdManager, avdHome(avdHomeOverride), environment)
+    }
+
+    private fun avdManagerOrThrow(
+        sdkPathOverride: String?,
+        avdHomeOverride: String?,
+    ): Pair<String, Map<String, String>> {
+        val toolchain = toolchainStatus(sdkPathOverride)
+        val avdManager =
+            toolchain.executable(AndroidTool.AVD_MANAGER)
+                ?: throw CommandException("avdmanager is not installed in ${toolchain.sdkPath}. Run setup first.")
+        val java = javaInstallation() ?: throw CommandException("avdmanager needs a Java runtime and none was found. Run setup first.")
+        return avdManager to ToolEnvironment(environment).build(toolchain.sdkPath, avdHome(avdHomeOverride), java)
     }
 }

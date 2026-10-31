@@ -41,6 +41,10 @@ public final class AppModel {
     public var errorMessage: String?
     /// Set while the user is confirming a destructive "wipe data" start.
     public var pendingWipe: VirtualDevice?
+    /// Set while the user is confirming a deletion.
+    public var pendingDelete: VirtualDevice?
+    /// The sheet for a new device, while it is open.
+    public var creating: CreateDeviceModel?
 
     public var locations: Locations {
         didSet { saveLocations() }
@@ -206,6 +210,31 @@ public final class AppModel {
         case .idle: await launch(device)
         case .running: await stop(device)
         case .starting: break
+        }
+    }
+
+    /// Opens the "New Device" sheet, preselecting the sidebar's type when one is chosen.
+    public func presentCreateDevice() {
+        let kind: DeviceKind = if case .kind(let selected) = sidebarSelection { selected } else { .phone }
+        creating = CreateDeviceModel(service: service, locations: locations, existingNames: devices.map(\.id), kind: kind)
+    }
+
+    public func deviceCreated(named name: String) async {
+        await refresh()
+        selection = name
+        if case .kind(let kind) = sidebarSelection, devices.first(where: { $0.id == name })?.kind != kind {
+            sidebarSelection = .all
+        }
+    }
+
+    public func confirmDelete() async {
+        guard let device = pendingDelete else { return }
+        pendingDelete = nil
+        do {
+            try await service.deleteDevice(device, locations: locations)
+            await refresh()
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 

@@ -33,6 +33,11 @@ struct AVDStudioApp: App {
         }
         .defaultSize(width: 1040, height: 700)
         .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("New Device…") { model.presentCreateDevice() }
+                    .keyboardShortcut("n", modifiers: .command)
+                    .disabled(model.needsSetup)
+            }
             CommandGroup(after: .toolbar) {
                 Button("Refresh Devices") { Task { await model.refresh() } }
                     .keyboardShortcut("r", modifiers: .command)

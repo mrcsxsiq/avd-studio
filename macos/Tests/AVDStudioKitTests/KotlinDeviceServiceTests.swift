@@ -20,7 +20,9 @@ struct KotlinDeviceServiceTests {
         KotlinDeviceService(
             environment: StaticEnvironment(
                 variables: ["PATH": "/usr/bin:/bin", "HOMEBREW_PREFIX": home.appendingPathComponent("homebrew").path],
-                homeDirectory: home.path
+                homeDirectory: home.path,
+                // Keeps this Mac's real /Library/Java and Android Studio out of the tests.
+                systemRoot: home.path
             ))
     }
 
@@ -178,5 +180,91 @@ struct KotlinDeviceServiceTests {
         await #expect(throws: ServiceError.self) {
             try await service.runSetupStep(step, locations: Locations())
         }
+    }
+
+    // MARK: Catalogs, create and delete
+
+    private func installImage(_ platform: String, _ tag: String, _ abi: String) throws {
+        try write("Library/Android/sdk/system-images/\(platform)/\(tag)/\(abi)/system.img")
+        try write(
+            "Library/Android/sdk/system-images/\(platform)/\(tag)/\(abi)/source.properties",
+            "AndroidVersion.ApiLevel=\(platform.replacingOccurrences(of: "android-", with: ""))\nSystemImage.TagId=\(tag)\nSystemImage.Abi=\(abi)\n"
+        )
+    }
+
+    /// Mimics the files `avdmanager create avd` / `delete avd` write, and answers `list device`.
+    private func installFakeAvdManager() throws {
+        let script = """
+            #!/bin/sh
+            case "$1 $2" in
+              "list device") printf 'id: 54 or "pixel_9"\\n    Name: Pixel 9\\n    OEM : Google\\n---------\\n';;
+              "create avd")
+                name=""; while [ $# -gt 0 ]; do case "$1" in --name) name="$2"; shift;; esac; shift; done
+                mkdir -p "$ANDROID_AVD_HOME/$name.avd"
+                printf 'path=%s\\ntarget=android-36\\n' "$ANDROID_AVD_HOME/$name.avd" > "$ANDROID_AVD_HOME/$name.ini"
+                printf 'PlayStore.enabled=no\\nhw.device.name=pixel_9\\nimage.sysdir.1=system-images/android-36/google_apis_playstore/arm64-v8a/\\n' > "$ANDROID_AVD_HOME/$name.avd/config.ini";;
+              "delete avd")
+                name=""; while [ $# -gt 0 ]; do case "$1" in --name) name="$2"; shift;; esac; shift; done
+                rm -rf "$ANDROID_AVD_HOME/$name.avd" "$ANDROID_AVD_HOME/$name.ini";;
+            esac
+            """
+        let path = home.appendingPathComponent("Library/Android/sdk/cmdline-tools/latest/bin/avdmanager")
+        try write("Library/Android/sdk/cmdline-tools/latest/bin/avdmanager", script)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: path.path)
+    }
+
+    @Test func listsInstalledSystemImagesWithTheirFamily() async throws {
+        try installSDK(at: "Library/Android/sdk")
+        try installImage("android-36", "google_apis_playstore", "arm64-v8a")
+        try installImage("android-36", "android-tv", "arm64-v8a")
+
+        let images = await makeService().installedSystemImages(locations: Locations())
+
+        #expect(
+            images.map(\.packagePath) == [
+                "system-images;android-36;google_apis_playstore;arm64-v8a",
+                "system-images;android-36;android-tv;arm64-v8a",
+            ])
+        #expect(images[0].hasPlayStore && images[0].family == .general && images[0].apiLevel == "36")
+        #expect(images[1].family == .tv)
+    }
+
+    @Test func deviceProfilesNeedJavaAndReportItClearly() async throws {
+        try installSDK(at: "Library/Android/sdk")
+        try installFakeAvdManager()
+
+        await #expect(throws: ServiceError.self) { try await makeService().deviceProfiles(locations: Locations()) }
+        do {
+            _ = try await makeService().deviceProfiles(locations: Locations())
+        } catch {
+            #expect(error.localizedDescription.contains("Java"))
+        }
+    }
+
+    @Test func createsAndDeletesADeviceThroughTheRealCore() async throws {
+        try installSDK(at: "Library/Android/sdk")
+        try installFakeAvdManager()
+        try installImage("android-36", "google_apis_playstore", "arm64-v8a")
+        try write(".sdkman/candidates/java/current/bin/java")
+        let service = makeService()
+        let profiles = try await service.deviceProfiles(locations: Locations())
+        let image = try #require(await service.installedSystemImages(locations: Locations()).first)
+        let profile = try #require(profiles.first)
+        #expect(profile.id == "pixel_9" && profile.kind == .phone)
+
+        try await service.createDevice(
+            CreateDeviceRequest(name: "Pixel_9_API_36", displayName: "Mine", systemImage: image, device: profile, ramMegabytes: 4096),
+            locations: Locations()
+        )
+
+        let created = try #require(await service.snapshot(locations: Locations()).devices.first { $0.id == "Pixel_9_API_36" })
+        #expect(created.displayName == "Mine")
+        #expect(created.hasPlayStore)
+        #expect(created.ramMegabytes == 4096)
+        #expect(await service.validateDeviceName("Pixel_9_API_36", locations: Locations()) != nil)
+        #expect(await service.validateDeviceName("Other", locations: Locations()) == nil)
+
+        try await service.deleteDevice(created, locations: Locations())
+        #expect(await service.snapshot(locations: Locations()).devices.isEmpty)
     }
 }

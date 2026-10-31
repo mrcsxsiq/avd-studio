@@ -15,4 +15,7 @@ public class SystemEnvironment : Environment {
 
     override val homeDirectory: String
         get() = NSHomeDirectory()
+
+    override val systemRoot: String
+        get() = ""
 }

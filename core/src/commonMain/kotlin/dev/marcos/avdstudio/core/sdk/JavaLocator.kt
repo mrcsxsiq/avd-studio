@@ -39,13 +39,18 @@ internal class JavaLocator(
                     add(JavaInstallation("$homebrewPrefix/opt/$formula/libexec/openjdk.jdk/Contents/Home", JavaSource.HOMEBREW))
                 }
                 installedJvms().forEach { add(JavaInstallation(it.toString(), JavaSource.SYSTEM_JVM)) }
-                add(JavaInstallation("/Applications/Android Studio.app/Contents/jbr/Contents/Home", JavaSource.ANDROID_STUDIO))
+                add(
+                    JavaInstallation(
+                        "${environment.systemRoot}/Applications/Android Studio.app/Contents/jbr/Contents/Home",
+                        JavaSource.ANDROID_STUDIO,
+                    ),
+                )
             }
         return candidates.firstOrNull { fileSystem.exists(it.home.toPath() / "bin" / "java") }
     }
 
     private fun installedJvms(): List<Path> {
-        val root = "/Library/Java/JavaVirtualMachines".toPath()
+        val root = "${environment.systemRoot}/Library/Java/JavaVirtualMachines".toPath()
         return runCatching { fileSystem.list(root) }
             .getOrDefault(emptyList())
             .sortedByDescending { it.name }

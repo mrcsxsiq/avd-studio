@@ -21,6 +21,15 @@ public struct RootView: View {
         }
         .searchable(text: $model.searchText, placement: .toolbar, prompt: "Search devices")
         .toolbar {
+            ToolbarItem {
+                Button {
+                    model.presentCreateDevice()
+                } label: {
+                    Label("New Device", systemImage: "plus")
+                }
+                .help("Create a virtual device (⌘N)")
+                .disabled(model.needsSetup)
+            }
             if let release = updates?.availableRelease {
                 ToolbarItem {
                     Button {
@@ -47,6 +56,19 @@ public struct RootView: View {
             Button("OK", role: .cancel) {}
         } message: { message in
             Text(message)
+        }
+        .sheet(item: $model.creating) { creating in
+            CreateDeviceView(model: creating) { name in Task { await model.deviceCreated(named: name) } }
+        }
+        .confirmationDialog(
+            "Delete \(model.pendingDelete?.displayName ?? "this device")?",
+            isPresented: deleteBinding,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) { Task { await model.confirmDelete() } }
+            Button("Cancel", role: .cancel) { model.pendingDelete = nil }
+        } message: {
+            Text("The device and everything stored on it are removed from \(model.pendingDelete?.path ?? "disk"). This cannot be undone.")
         }
         .confirmationDialog(
             "Wipe all data on \(model.pendingWipe?.displayName ?? "this device")?",
@@ -91,6 +113,10 @@ public struct RootView: View {
         Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })
     }
 
+    private var deleteBinding: Binding<Bool> {
+        Binding(get: { model.pendingDelete != nil }, set: { if !$0 { model.pendingDelete = nil } })
+    }
+
     private var wipeBinding: Binding<Bool> {
         Binding(get: { model.pendingWipe != nil }, set: { if !$0 { model.pendingWipe = nil } })
     }
@@ -112,3 +138,5 @@ struct SetupBanner: View {
         .overlay(alignment: .bottom) { Divider() }
     }
 }
+
+extension CreateDeviceModel: Identifiable {}

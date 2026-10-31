@@ -18,6 +18,13 @@ actor FakeDeviceService: DeviceService {
     var stepExitCodes: [SetupStep.Kind: Int32] = [:]
     var startFailures: Set<SetupStep.Kind> = []
     private(set) var ranSteps: [SetupStep.Kind] = []
+    var images: [SystemImage] = SampleData.systemImages
+    var profiles: [DeviceProfile] = SampleData.deviceProfiles
+    var profilesError: ServiceError?
+    var createError: ServiceError?
+    var deleteError: ServiceError?
+    private(set) var created: [CreateDeviceRequest] = []
+    private(set) var deleted: [String] = []
     private(set) var launches: [Launch] = []
     private(set) var stops: [String] = []
     private(set) var snapshotRequests: [Locations] = []
@@ -38,6 +45,11 @@ actor FakeDeviceService: DeviceService {
     func setPlan(_ plan: SetupPlan) { self.plan = plan }
     func setStepExitCodes(_ codes: [SetupStep.Kind: Int32]) { stepExitCodes = codes }
     func setStartFailures(_ kinds: Set<SetupStep.Kind>) { startFailures = kinds }
+    func setImages(_ images: [SystemImage]) { self.images = images }
+    func setProfiles(_ profiles: [DeviceProfile]) { self.profiles = profiles }
+    func setProfilesError(_ error: ServiceError?) { profilesError = error }
+    func setCreateError(_ error: ServiceError?) { createError = error }
+    func setDeleteError(_ error: ServiceError?) { deleteError = error }
 
     func snapshot(locations: Locations) async -> DeviceSnapshot {
         snapshotRequests.append(locations)
@@ -58,6 +70,31 @@ actor FakeDeviceService: DeviceService {
     }
 
     func setupPlan(locations: Locations) async -> SetupPlan { plan }
+
+    func installedSystemImages(locations: Locations) async -> [SystemImage] { images }
+
+    func deviceProfiles(locations: Locations) async throws -> [DeviceProfile] {
+        if let profilesError { throw profilesError }
+        return profiles
+    }
+
+    func validateDeviceName(_ name: String, locations: Locations) async -> String? {
+        devices.contains { $0.id == name } ? "A device called \(name) already exists." : nil
+    }
+
+    func createDevice(_ request: CreateDeviceRequest, locations: Locations) async throws {
+        if let createError { throw createError }
+        created.append(request)
+        devices.append(
+            VirtualDevice(
+                id: request.name, displayName: request.displayName, kind: request.device.kind, apiLevel: request.systemImage.apiLevel))
+    }
+
+    func deleteDevice(_ device: VirtualDevice, locations: Locations) async throws {
+        if let deleteError { throw deleteError }
+        deleted.append(device.id)
+        devices.removeAll { $0.id == device.id }
+    }
 
     func runSetupStep(_ step: SetupStep, locations: Locations) async throws -> SetupStepResult {
         ranSteps.append(step.kind)

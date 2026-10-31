@@ -94,7 +94,95 @@ public final class KotlinDeviceService: DeviceService, @unchecked Sendable {
         }.value
     }
 
+    public func installedSystemImages(locations: Locations) async -> [AVDStudioUI.SystemImage] {
+        await Task.detached { [self] in
+            core.installedSystemImages(sdkPathOverride: locations.sdkPath).map(Self.image(from:))
+        }.value
+    }
+
+    public func deviceProfiles(locations: Locations) async throws -> [AVDStudioUI.DeviceProfile] {
+        try await Task.detached { [self] in
+            do {
+                return try core.deviceProfiles(sdkPathOverride: locations.sdkPath).map(Self.profile(from:))
+            } catch {
+                throw ServiceError(Self.message(for: error))
+            }
+        }.value
+    }
+
+    public func validateDeviceName(_ name: String, locations: Locations) async -> String? {
+        await Task.detached { [self] in core.validateAvdName(name: name, avdHomeOverride: locations.avdHome) }.value
+    }
+
+    public func createDevice(_ request: CreateDeviceRequest, locations: Locations) async throws {
+        try await Task.detached { [self] in
+            // Swift values carry ids only; the Kotlin objects are looked up again here.
+            guard
+                let image = core.installedSystemImages(sdkPathOverride: locations.sdkPath).first(where: {
+                    $0.packagePath == request.systemImage.packagePath
+                })
+            else { throw ServiceError("The system image \(request.systemImage.packagePath) is no longer installed.") }
+            let device = AVDStudioCore.DeviceProfile(
+                id: request.device.id, name: request.device.name, manufacturer: request.device.manufacturer, tag: nil, formFactor: .unknown
+            )
+            let kotlinRequest = CreateAvdRequest(
+                name: request.name,
+                displayName: request.displayName,
+                systemImage: image,
+                device: device,
+                ramMegabytes: request.ramMegabytes.map { KotlinInt(int: Int32($0)) },
+                storage: request.storage,
+                sdCard: request.sdCard
+            )
+            do {
+                _ = try core.createAvd(request: kotlinRequest, sdkPathOverride: locations.sdkPath, avdHomeOverride: locations.avdHome)
+            } catch {
+                throw ServiceError(Self.message(for: error))
+            }
+        }.value
+    }
+
+    public func deleteDevice(_ device: VirtualDevice, locations: Locations) async throws {
+        try await Task.detached { [self] in
+            do {
+                try core.deleteAvd(avdName: device.id, sdkPathOverride: locations.sdkPath, avdHomeOverride: locations.avdHome)
+            } catch {
+                throw ServiceError(Self.message(for: error))
+            }
+        }.value
+    }
+
     // MARK: Mapping
+
+    static func image(from image: AVDStudioCore.SystemImage) -> AVDStudioUI.SystemImage {
+        AVDStudioUI.SystemImage(
+            packagePath: image.packagePath,
+            apiLevel: image.apiLevel?.label,
+            androidVersion: image.apiLevel?.androidVersion,
+            versionLabel: image.versionLabel,
+            tagDisplay: image.tagDisplay,
+            abi: image.abi,
+            hasPlayStore: image.hasPlayStore,
+            isNativeOnAppleSilicon: image.isNativeOnAppleSilicon,
+            family: family(from: image.family)
+        )
+    }
+
+    static func family(from family: ImageFamily) -> AVDStudioUI.SystemImage.Family {
+        switch family.name {
+        case "TV": .tv
+        case "WEAR_OS": .wearOS
+        case "AUTOMOTIVE": .automotive
+        case "DESKTOP": .desktop
+        case "XR": .xr
+        default: .general
+        }
+    }
+
+    static func profile(from profile: AVDStudioCore.DeviceProfile) -> AVDStudioUI.DeviceProfile {
+        AVDStudioUI.DeviceProfile(
+            id: profile.id, name: profile.name, manufacturer: profile.manufacturer, kind: kind(from: profile.formFactor))
+    }
 
     static func plan(from plan: AVDStudioCore.SetupPlan) -> AVDStudioUI.SetupPlan {
         AVDStudioUI.SetupPlan(

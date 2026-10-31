@@ -135,6 +135,43 @@ public enum SampleData {
             "#!/bin/bash\nset -euo pipefail\n/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"\nbrew install --cask android-commandlinetools\n"
     )
 
+    public static let systemImages: [SystemImage] = [
+        SystemImage(
+            packagePath: "system-images;android-36;google_apis_playstore;arm64-v8a", apiLevel: "36", androidVersion: "16",
+            versionLabel: "Android 16 (API 36)", tagDisplay: "Google Play", abi: "arm64-v8a", hasPlayStore: true,
+            isNativeOnAppleSilicon: true, family: .general),
+        SystemImage(
+            packagePath: "system-images;android-36;google_apis;arm64-v8a", apiLevel: "36", androidVersion: "16",
+            versionLabel: "Android 16 (API 36)", tagDisplay: "Google APIs", abi: "arm64-v8a", hasPlayStore: false,
+            isNativeOnAppleSilicon: true, family: .general),
+        SystemImage(
+            packagePath: "system-images;android-36;android-tv;arm64-v8a", apiLevel: "36", androidVersion: "16",
+            versionLabel: "Android 16 (API 36)", tagDisplay: "Android TV", abi: "arm64-v8a", hasPlayStore: false,
+            isNativeOnAppleSilicon: true, family: .tv),
+        SystemImage(
+            packagePath: "system-images;android-34;google_apis_playstore;arm64-v8a", apiLevel: "34", androidVersion: "14",
+            versionLabel: "Android 14 (API 34)", tagDisplay: "Google Play", abi: "arm64-v8a", hasPlayStore: true,
+            isNativeOnAppleSilicon: true, family: .general),
+        SystemImage(
+            packagePath: "system-images;android-34;google_apis;x86_64", apiLevel: "34", androidVersion: "14",
+            versionLabel: "Android 14 (API 34)", tagDisplay: "Google APIs", abi: "x86_64", hasPlayStore: false,
+            isNativeOnAppleSilicon: false, family: .general),
+    ]
+
+    public static let deviceProfiles: [DeviceProfile] = [
+        DeviceProfile(id: "pixel_9", name: "Pixel 9", manufacturer: "Google", kind: .phone),
+        DeviceProfile(id: "pixel_9_pro", name: "Pixel 9 Pro", manufacturer: "Google", kind: .phone),
+        DeviceProfile(id: "medium_phone", name: "Medium Phone", manufacturer: "Generic", kind: .phone),
+        DeviceProfile(id: "pixel_9_pro_fold", name: "Pixel 9 Pro Fold", manufacturer: "Google", kind: .foldable),
+        DeviceProfile(id: "pixel_tablet", name: "Pixel Tablet", manufacturer: "Google", kind: .tablet),
+        DeviceProfile(id: "wearos_large_round", name: "Wear OS Large Round", manufacturer: "Google", kind: .wearOS),
+        DeviceProfile(id: "tv_1080p", name: "Television (1080p)", manufacturer: "Google", kind: .tv),
+        DeviceProfile(id: "tv_4k", name: "Television (4K)", manufacturer: "Google", kind: .tv),
+        DeviceProfile(id: "automotive_1080p_landscape", name: "Automotive (1080p landscape)", manufacturer: "Google", kind: .automotive),
+        DeviceProfile(id: "desktop_medium", name: "Medium Desktop", manufacturer: "Google", kind: .desktop),
+        DeviceProfile(id: "xr_headset_device", name: "XR Headset", manufacturer: "Google", kind: .xr),
+    ]
+
     public static let diagnostics: [DoctorItem] = [
         .init(id: "sdk", title: "Android SDK", status: .pass, detail: "/Users/you/Library/Android/sdk (Android Studio default)"),
         .init(id: "emulator", title: "emulator", status: .pass, detail: "/Users/you/Library/Android/sdk/emulator/emulator"),
@@ -179,6 +216,11 @@ public struct PreviewDeviceService: DeviceService {
     public func runSetupStep(_ step: SetupStep, locations: Locations) async throws -> SetupStepResult {
         SetupStepResult(exitCode: 0, output: "")
     }
+    public func installedSystemImages(locations: Locations) async -> [SystemImage] { SampleData.systemImages }
+    public func deviceProfiles(locations: Locations) async throws -> [DeviceProfile] { SampleData.deviceProfiles }
+    public func validateDeviceName(_ name: String, locations: Locations) async -> String? { nil }
+    public func createDevice(_ request: CreateDeviceRequest, locations: Locations) async throws {}
+    public func deleteDevice(_ device: VirtualDevice, locations: Locations) async throws {}
 }
 
 /// Always reports "nothing published"; backs previews.

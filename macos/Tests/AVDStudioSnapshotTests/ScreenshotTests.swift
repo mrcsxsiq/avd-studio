@@ -236,6 +236,47 @@ final class ScreenshotTests: SnapshotTestCase {
         model.setSetupPlanForPreview(SampleData.setupPlan)
         assertScreenshot(of: SetupView(model: model), size: CGSize(width: 760, height: 760), named: "setup-automatic", schemes: [.light])
     }
+
+    // MARK: New device
+
+    @MainActor
+    private func createModel(
+        images: [SystemImage] = SampleData.systemImages,
+        profilesError: String? = nil,
+        kind: DeviceKind = .phone
+    ) async -> CreateDeviceModel {
+        let model = CreateDeviceModel(
+            service: ConfigurableCatalogService(images: images, profilesError: profilesError),
+            locations: Locations(),
+            existingNames: ["Pixel_9_API_36"],
+            kind: kind
+        )
+        await model.load()
+        return model
+    }
+
+    @MainActor
+    func testCreateDeviceSheet() async {
+        let model = await createModel()
+        assertScreenshot(of: CreateDeviceView(model: model) { _ in }, size: CGSize(width: 600, height: 640), named: "create-phone")
+    }
+
+    @MainActor
+    func testCreateDeviceSheetForAKindWithoutImages() async {
+        let model = await createModel(kind: .wearOS)
+        assertScreenshot(
+            of: CreateDeviceView(model: model) { _ in }, size: CGSize(width: 600, height: 640), named: "create-no-image", schemes: [.light]
+        )
+    }
+
+    @MainActor
+    func testCreateDeviceSheetWhenAvdmanagerIsUnavailable() async {
+        let model = await createModel(profilesError: "avdmanager needs a Java runtime and none was found. Run setup first.")
+        assertScreenshot(
+            of: CreateDeviceView(model: model) { _ in }, size: CGSize(width: 600, height: 640), named: "create-unavailable",
+            schemes: [.light]
+        )
+    }
 }
 
 private struct NoopOpener: FileOpening {
@@ -253,10 +294,39 @@ private struct FailingSetupService: DeviceService {
     func launch(_ device: VirtualDevice, options: LaunchOptions, locations: Locations) async throws {}
     func stop(_ device: VirtualDevice) async throws {}
     func setupPlan(locations: Locations) async -> SetupPlan { SampleData.setupPlan }
+    func installedSystemImages(locations: Locations) async -> [SystemImage] { [] }
+    func deviceProfiles(locations: Locations) async throws -> [DeviceProfile] { [] }
+    func validateDeviceName(_ name: String, locations: Locations) async -> String? { nil }
+    func createDevice(_ request: CreateDeviceRequest, locations: Locations) async throws {}
+    func deleteDevice(_ device: VirtualDevice, locations: Locations) async throws {}
 
     func runSetupStep(_ step: SetupStep, locations: Locations) async throws -> SetupStepResult {
         step.kind == failAt
             ? SetupStepResult(exitCode: 1, output: "Warning: Could not find sdkmanager\nError: Unknown command line argument --licenses")
             : SetupStepResult(exitCode: 0, output: "")
     }
+}
+
+/// Serves the catalogs for the New Device sheet.
+private struct ConfigurableCatalogService: DeviceService {
+    let images: [SystemImage]
+    let profilesError: String?
+
+    func snapshot(locations: Locations) async -> DeviceSnapshot { await PreviewDeviceService().snapshot(locations: locations) }
+    func runningDevices() async -> [RunningDevice] { [] }
+    func diagnose(locations: Locations) async -> [DoctorItem] { [] }
+    func launch(_ device: VirtualDevice, options: LaunchOptions, locations: Locations) async throws {}
+    func stop(_ device: VirtualDevice) async throws {}
+    func setupPlan(locations: Locations) async -> SetupPlan { .empty }
+    func runSetupStep(_ step: SetupStep, locations: Locations) async throws -> SetupStepResult { SetupStepResult(exitCode: 0, output: "") }
+    func installedSystemImages(locations: Locations) async -> [SystemImage] { images }
+
+    func deviceProfiles(locations: Locations) async throws -> [DeviceProfile] {
+        if let profilesError { throw ServiceError(profilesError) }
+        return SampleData.deviceProfiles
+    }
+
+    func validateDeviceName(_ name: String, locations: Locations) async -> String? { nil }
+    func createDevice(_ request: CreateDeviceRequest, locations: Locations) async throws {}
+    func deleteDevice(_ device: VirtualDevice, locations: Locations) async throws {}
 }

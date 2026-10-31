@@ -53,10 +53,16 @@ public struct MenuBarContent: View {
             .padding(24)
             .frame(maxWidth: .infinity)
         } else if model.devices.isEmpty {
-            Text("No virtual devices found.").foregroundStyle(.secondary).padding(30)
+            VStack(spacing: 10) {
+                Text("No virtual devices yet.").foregroundStyle(.secondary)
+                Button("New Device…") { openCreate() }.buttonStyle(.borderedProminent).disabled(model.needsSetup)
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity)
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 4) {
+                    newDeviceRow
                     let running = model.devices.filter { model.runState(of: $0) == .running }
                     if !running.isEmpty { section("Running", devices: running) }
                     ForEach(model.availableKinds) { kind in
@@ -103,6 +109,34 @@ public struct MenuBarContent: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Version \(release.version.description) is available. Open update window.")
+    }
+
+    private var newDeviceRow: some View {
+        Button {
+            openCreate()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 32, height: 32)
+                    .background(Color.accentColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                Text("New Device…").font(.body)
+                Spacer()
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(model.needsSetup)
+        .accessibilityLabel("Create a new virtual device")
+    }
+
+    private func openCreate() {
+        NSApp.activate(ignoringOtherApps: true)
+        openWindow(id: "main")
+        model.presentCreateDevice()
     }
 
     private var footer: some View {
