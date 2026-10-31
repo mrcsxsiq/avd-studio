@@ -1,0 +1,9 @@
+* text=auto eol=lf
+*.jar binary
+*.png binary
+*.icns binary
+*.xcframework binary
+gradlew text eol=lf
+*.bat text eol=crlf
+# Keep snapshot reference images out of textual diffs.
+**/__Snapshots__/** binary
