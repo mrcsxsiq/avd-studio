@@ -13,10 +13,11 @@ val generateBuildInfo =
         inputs.property("version", version)
         outputs.dir(outputDir)
         doLast {
-            val file = outputDir.get().file("com/mrcsxsiq/avdstudio/cli/BuildInfo.kt").asFile
+            outputDir.get().asFile.deleteRecursively() // never leave a stale file from an older package name behind
+            val file = outputDir.get().file("dev/marcos/avdstudio/cli/BuildInfo.kt").asFile
             file.parentFile.mkdirs()
             file.writeText(
-                "package com.mrcsxsiq.avdstudio.cli\n\n" +
+                "package dev.marcos.avdstudio.cli\n\n" +
                     "internal const val VERSION = \"${version.get()}\"\n",
             )
         }
@@ -30,7 +31,7 @@ kotlin {
     listOf(macosArm64()).forEach { target ->
         target.binaries.executable {
             baseName = "avdstudio"
-            entryPoint = "com.mrcsxsiq.avdstudio.cli.main"
+            entryPoint = "dev.marcos.avdstudio.cli.main"
         }
     }
 

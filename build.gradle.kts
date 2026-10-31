@@ -8,7 +8,7 @@ plugins {
 val appVersion = providers.fileContents(layout.projectDirectory.file("VERSION")).asText.map { it.trim() }
 
 allprojects {
-    group = "com.mrcsxsiq.avdstudio"
+    group = "dev.marcos.avdstudio"
     version = appVersion.get()
 
     apply(plugin = "org.jlleitschuh.gradle.ktlint")
