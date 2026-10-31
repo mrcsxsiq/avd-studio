@@ -3,7 +3,7 @@ class Avdstudio < Formula
   homepage "https://github.com/mrcsxsiq/avd-studio"
   version "0.1.0"
   url "https://github.com/mrcsxsiq/avd-studio/releases/download/v#{version}/avdstudio-#{version}-macos-arm64.tar.gz"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  sha256 "465fbc0fffa9fbcda3ca3b7950e5eef7e654f430b30da014d12a4d419d178b1a"
   license "MIT"
 
   depends_on arch: :arm64
