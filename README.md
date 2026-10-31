@@ -153,14 +153,11 @@ Then run `avdstudio doctor` again to check.
 
 ## Settings
 
-| Section | What you can change |
+| Tab | What you can change |
 | --- | --- |
-| Appearance | System, Light or Dark |
-| Android SDK | The SDK folder (leave empty for auto-detection) |
-| Virtual devices | The folder that holds the `.avd` files |
-| Updates | Automatic checks on/off, Check for Updates… |
-| Menu bar | Show the menu bar item; choose one of ten icons |
-| Diagnostics | The same checks as `avdstudio doctor`, with Fix Automatically… |
+| General | Theme (System, Light or Dark); show the menu bar item and choose one of ten icons; automatic update checks and Check for Updates… |
+| Android | The SDK folder (leave empty for auto-detection); the folder that holds the `.avd` files; Diagnostics (the same checks as `avdstudio doctor`) with Fix Automatically… |
+| About | The version, a **Star on GitHub** button and links to the website, changelog and license. Also reachable from the menu bar popover (ⓘ next to the gear) and the app menu. |
 
 ## How it works
 

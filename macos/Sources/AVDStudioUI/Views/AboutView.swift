@@ -70,3 +70,13 @@ public struct AboutView: View {
         .frame(width: 340)
     }
 }
+
+/// The About page as a Settings tab: the same view as the About window, centred in the tab.
+struct AboutSettingsTab: View {
+    @State private var model = AboutModel()
+
+    var body: some View {
+        AboutView(model: model)
+            .frame(width: SettingsTab.about.size.width, height: SettingsTab.about.size.height)
+    }
+}

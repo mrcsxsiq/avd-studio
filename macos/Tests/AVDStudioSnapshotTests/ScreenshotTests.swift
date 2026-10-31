@@ -108,12 +108,30 @@ final class ScreenshotTests: SnapshotTestCase {
     }
 
     @MainActor
-    func testSettings() {
+    private func assertSettingsTab(
+        _ tab: SettingsTab, of view: some View, named name: String, file: StaticString = #filePath, testName: String = #function,
+        line: UInt = #line
+    ) {
+        assertScreenshot(of: view, size: tab.size, named: name, file: file, testName: testName, line: line)
+    }
+
+    @MainActor
+    func testSettingsGeneralTab() {
         let model = SampleData.model()
         let updates = SampleData.updateModel(state: .available(SampleData.release))
-        // Taller than the real window (which scrolls) so the screenshot shows every section.
-        assertScreenshot(
-            of: SettingsView(model: model, height: 1080).environment(updates), size: CGSize(width: 600, height: 1080), named: "settings")
+        assertSettingsTab(.general, of: GeneralSettingsTab(model: model).environment(updates), named: "settings-general")
+    }
+
+    @MainActor
+    func testSettingsAndroidTab() {
+        let model = SampleData.model()
+        model.setSetupPlanForPreview(SampleData.setupPlan)
+        assertSettingsTab(.android, of: AndroidSettingsTab(model: model), named: "settings-android")
+    }
+
+    @MainActor
+    func testSettingsAboutTab() {
+        assertSettingsTab(.about, of: AboutSettingsTab(), named: "settings-about")
     }
 
     @MainActor

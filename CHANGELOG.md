@@ -16,11 +16,17 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
 
 ### Added
 
-- An About window (app menu → About AVD Studio) with the version, a **Star on GitHub** button that opens the
-  repository (the app has no GitHub account, so one click on Star there does it) and links to the website,
-  changelog and license.
+- An About page with the version, a **Star on GitHub** button that opens the repository (the app has no GitHub
+  account, so one click on Star there does it) and links to the website, changelog and license. Open it from the
+  app menu (About AVD Studio), from the menu bar popover (the ⓘ next to the gear) or from the new About tab in
+  Settings.
 - The `avdstudio` command-line tool now ships inside the app (`AVD Studio.app/Contents/Helpers/avdstudio`), so
   one install gives you both.
+
+### Changed
+
+- Settings are split into three tabs: General (appearance, menu bar, updates), Android (SDK and virtual device
+  folders, diagnostics, which now start with the Run Diagnostics and Fix buttons) and About.
 
 ### Fixed
 

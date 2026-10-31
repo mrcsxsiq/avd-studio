@@ -1,4 +1,6 @@
+import AppKit
 import Foundation
+import SwiftUI
 import Testing
 
 @testable import AVDStudioUI
@@ -54,5 +56,31 @@ struct AboutTests {
         model.openLicense()
 
         #expect(opener.opened == [AppInfo.website, AppInfo.changelog, AppInfo.license])
+    }
+}
+
+@Suite("Settings tabs")
+@MainActor
+struct SettingsTabTests {
+    @Test func settingsHasGeneralAndroidAndAboutInThatOrder() {
+        #expect(SettingsTab.allCases == [.general, .android, .about])
+        #expect(SettingsTab.allCases.map(\.title) == ["General", "Android", "About"])
+        #expect(Set(SettingsTab.allCases.map(\.symbolName)).count == 3)
+    }
+
+    @Test func theAboutTabIsBigEnoughForTheAboutPage() {
+        let natural = NSHostingView(rootView: AboutView(model: AboutModel(info: AppInfo(version: "0.1.0", build: "1")), icon: NSImage()))
+            .fittingSize
+        let tab = SettingsTab.about.size
+
+        #expect(natural.height <= tab.height, "About needs \(natural.height) pt but its tab is \(tab.height) pt: it would be clipped")
+        #expect(natural.width <= tab.width)
+    }
+
+    @Test func everyTabHasARoomySize() {
+        for tab in SettingsTab.allCases {
+            #expect(tab.size.width >= 500 && tab.size.height >= 400, "\(tab)")
+        }
+        #expect(SettingsTab.allCases.allSatisfy { $0.size.height <= 760 }, "a Settings window must fit a laptop screen")
     }
 }

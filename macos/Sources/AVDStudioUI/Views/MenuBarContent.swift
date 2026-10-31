@@ -166,6 +166,7 @@ public struct MenuBarContent: View {
             .buttonStyle(.link)
             Spacer()
             iconButton("arrow.clockwise", label: "Refresh") { Task { await model.refresh() } }
+            iconButton("info.circle", label: "About AVD Studio") { showAbout() }
             iconButton("gearshape", label: "Settings") { showSettings() }
             iconButton("power", label: "Quit AVD Studio") { NSApp.terminate(nil) }
         }
@@ -178,6 +179,11 @@ public struct MenuBarContent: View {
             .buttonStyle(.borderless)
             .help(label)
             .accessibilityLabel(label)
+    }
+
+    private func showAbout() {
+        NSApp.activate(ignoringOtherApps: true)
+        openWindow(id: "about")
     }
 
     private func showSettings() {
