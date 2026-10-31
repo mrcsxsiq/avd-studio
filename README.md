@@ -51,6 +51,18 @@
   </picture>
 </p>
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/create-dark.png">
+    <img src="docs/images/create-light.png" width="380" alt="The New Virtual Device sheet: type, hardware, Android version, name, RAM, storage and SD card">
+  </picture>
+  &nbsp;&nbsp;
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/setup-dark.png">
+    <img src="docs/images/setup-light.png" width="380" alt="The Set up Android sheet listing the commands it will run and asking you to accept the Android SDK License Agreement">
+  </picture>
+</p>
+
 ## Requirements
 
 - An Apple Silicon Mac running macOS 14 (Sonoma) or newer.
