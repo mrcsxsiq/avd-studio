@@ -34,3 +34,4 @@ dist/
 .env.*
 !.env.example
 macos/Frameworks/
+macos/App/Info.plist
