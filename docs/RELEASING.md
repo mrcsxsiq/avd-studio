@@ -3,6 +3,22 @@
 Releases are cut from `main` by pushing a tag. Everything else (building, packaging, signing, publishing, updating
 Homebrew) is done by `.github/workflows/release.yml`.
 
+## The short way: the "Create release" workflow
+
+**Actions → Create release → Run workflow**, type the version (for example `0.2.0`) and run it. Tick *dry run* first
+to see the release notes and have every check run without changing anything. The workflow:
+
+1. validates the version, refuses a tag that already exists, and requires a green CI run on the latest commit of `main`;
+2. runs `scripts/release.sh` (writes `VERSION`, moves `Unreleased` to the new version in `CHANGELOG.md`),
+   commits that as `chore(release): <version>` and creates the annotated tag, pushing both **atomically**;
+3. calls the release workflow below, which builds and publishes. (A tag pushed with the default `GITHUB_TOKEN` does
+   not trigger other workflows, which is why the tag workflow calls the release one directly.)
+
+From the command line: `gh workflow run tag.yml -f version=0.2.0` (add `-f dry_run=true` to rehearse).
+The very first release (`0.1.0`) works too: `VERSION` already says 0.1.0 and `release.sh` only moves the changelog.
+
+The manual way, step by step, is below; use it if you want to review the diff before anything is pushed.
+
 ## 1. Prepare
 
 1. Make sure `CHANGELOG.md` has everything under `## [Unreleased]`; that text becomes the release notes.
@@ -46,7 +62,7 @@ and `git tag -d v0.2.0`) and push it again; nothing is published until step 7.
 - Open the release page: DMG, tarball and `.sha256` files are attached, notes look right.
 - Install the DMG on a clean user account: the app opens (without a warning once notarized), Settings →
   Updates shows the new version.
-- `brew upgrade --cask avd-studio` / `brew upgrade avdstudio` from the tap pick up the new version.
+- `brew upgrade --cask avd-studio` / `brew upgrade avdstudio` from the tap pick up the new version (on a Mac that trusted them).
 - The website's download button shows the new version (it reads the GitHub API).
 
 ## Signing and notarization secrets
@@ -68,13 +84,20 @@ on a tag like `v0.2.0-rc.1`.
 
 ## Homebrew tap
 
-This repository doubles as the tap. Users run:
+This repository doubles as the tap, so it is added with its URL. Homebrew 6.0 and later load casks and formulae
+from non-official taps only after you trust them ([Tap Trust](https://docs.brew.sh/Tap-Trust)). Installing by the
+fully qualified name trusts just that item, which is the form we document:
 
 ```bash
 brew tap mrcsxsiq/avd-studio https://github.com/mrcsxsiq/avd-studio
-brew install --cask avd-studio    # the app
-brew install avdstudio            # the CLI
+brew install --cask mrcsxsiq/avd-studio/avd-studio    # the app
+brew install mrcsxsiq/avd-studio/avdstudio            # the CLI
 ```
+
+Short names (`brew install --cask avd-studio`) need the item trusted first:
+`brew trust --cask mrcsxsiq/avd-studio/avd-studio` / `brew trust --formula mrcsxsiq/avd-studio/avdstudio`
+(or `brew trust --tap mrcsxsiq/avd-studio` for the whole tap). Keep this in mind when you answer "brew can't find
+the cask" issues: the usual cause is a missing `brew tap` URL or missing trust.
 
 `Casks/avd-studio.rb` and `Formula/avdstudio.rb` point at the GitHub release assets. Never edit their `version` and
 `sha256` by hand; the workflow calls `scripts/update-homebrew.sh`.

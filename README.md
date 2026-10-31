@@ -28,13 +28,14 @@
 ## What it does
 
 - **See every emulator at a glance.** Each virtual device is a card with its own gradient, grouped in the sidebar by type: phone, foldable, tablet, Wear OS, TV, automotive, desktop and XR. Search by name, Android version or device profile.
+- **Create and delete devices.** The New Device sheet (⌘N) takes a type, a hardware definition, one of your installed Android versions, a name, RAM, storage and an SD card, and turns on Google Play, the GPU and the device frame like Android Studio does. Delete asks first.
 - **Start and stop with one click or a double-click.** Per-device actions: start, stop, cold boot, wipe data and start (with confirmation), show in Finder, copy name. Emulators started from Android Studio or a terminal show up as running too.
-- **Menu bar.** Start, test and stop emulators without opening the window. Pick the icon from ten options (a phone, a tablet, a watch, a little droid…); a dot shows when something is running.
+- **Menu bar.** Every device is listed with a play button (stopped) or a stop button (running), plus New Device…, so you can start, test and stop emulators without opening the window. Pick the icon from ten options (a phone, a tablet, a watch, a little droid…); a dot shows when something is running.
 - **Set up Android in one click.** No SDK? AVD Studio installs Google's command-line tools, a Java runtime, the emulator and the system images your devices need (through Homebrew and `sdkmanager`). Without Homebrew it gives you a script for Terminal. Already have an SDK? Point to it.
 - **Your folders, your rules.** Choose the SDK folder and the virtual-device folder (for example on an external SSD). Nothing is moved and Android Studio's settings are untouched.
 - **Light, dark or system theme.**
 - **Updates built in.** Shows the installed version next to the new one with release notes, downloads the DMG and verifies its SHA-256, and notifies you when a version is released. Automatic checks can be turned off.
-- **A real CLI.** `avdstudio list`, `start`, `doctor`, `setup` and `sdk-path`, with `--json` for scripts.
+- **A real CLI.** `avdstudio list`, `start`, `create`, `delete`, `images`, `devices`, `doctor`, `setup` and `sdk-path`, with `--json` for scripts.
 - **No analytics, no accounts.** The only network traffic is the optional update check against the GitHub Releases API.
 
 <p align="center">
@@ -61,11 +62,31 @@ AVD Studio never bundles the Android SDK. It runs the tools that are on your Mac
 
 Available with the first release:
 
-| Way | Command |
+| Way | How |
 | --- | --- |
 | DMG | Download `AVD-Studio-<version>.dmg` from [Releases](https://github.com/mrcsxsiq/avd-studio/releases), open it and drag the app to Applications. |
-| Homebrew (app) | `brew tap mrcsxsiq/avd-studio https://github.com/mrcsxsiq/avd-studio && brew install --cask avd-studio` |
-| Homebrew (CLI) | `brew install avdstudio` (after the same `brew tap`) |
+| Homebrew | See below. |
+
+**Homebrew.** This repository is its own tap, so it is added with its URL. Since Homebrew 6.0, casks and
+formulae from third-party taps only load once you trust them; installing by the **full name** trusts just that
+one item:
+
+```bash
+brew tap mrcsxsiq/avd-studio https://github.com/mrcsxsiq/avd-studio
+brew install --cask mrcsxsiq/avd-studio/avd-studio   # the app
+brew install mrcsxsiq/avd-studio/avdstudio           # the command-line tool (optional)
+```
+
+To use the short names (`brew install --cask avd-studio`, `brew upgrade avdstudio`) trust the items first:
+
+```bash
+brew trust --cask mrcsxsiq/avd-studio/avd-studio
+brew trust --formula mrcsxsiq/avd-studio/avdstudio
+# or, to trust everything this tap will ever publish: brew trust --tap mrcsxsiq/avd-studio
+```
+
+Update later with `brew upgrade --cask avd-studio` (the app can also tell you when a new version is out).
+`brew untrust` takes trust back.
 
 Until the first release, [build from source](#build-from-source).
 
@@ -89,6 +110,10 @@ Settings → Diagnostics shows the same checks later, with a **Fix Automatically
 ```text
 avdstudio list [--json]                      List the virtual devices
 avdstudio start <name> [--cold-boot] [--wipe-data] [--print-command]
+avdstudio create -n <name> -i <image> -d <device> [--ram MB] [--storage 16G] [--sdcard 512M] [--display-name TEXT]
+avdstudio delete <name> [--yes]              Delete a device and its data (asks unless --yes)
+avdstudio images [--json]                    System images installed in the SDK (what --image accepts)
+avdstudio devices [--type phone|tv|…] [--json]   Hardware definitions (what --device accepts)
 avdstudio doctor [--json]                    Check the SDK, Java and devices; prints numbered next steps
 avdstudio setup [--dry-run] [--script] [--accept-licenses]
                                              Install what is missing (Homebrew + sdkmanager)

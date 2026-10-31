@@ -10,7 +10,7 @@ By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 - **Bugs:** open an issue with the bug template. `avdstudio doctor --json` and the app version are the most useful
   things you can attach.
 - **Features:** open an issue first for anything bigger than a small fix, so we can agree on the approach before you
-  spend time on it. The roadmap is in the README (create devices, install system images, …).
+  spend time on it. The one open item on the roadmap is downloading any system image from inside the app (today `setup` installs the ones your existing devices need).
 - **Security:** see [SECURITY.md](SECURITY.md). Please do not open public issues for vulnerabilities.
 
 ## Setup

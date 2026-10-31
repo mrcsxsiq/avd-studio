@@ -107,7 +107,7 @@
           </li>
           <li class="feature tab-wear">
             <h3>Always one click away</h3>
-            <p>A menu bar item starts, tests and stops emulators without opening the window, and a dot shows when one is running.</p>
+            <p>A menu bar item lists every device with a play or stop button next to it, creates new ones, and shows a dot when an emulator is running.</p>
           </li>
           <li class="feature tab-tv">
             <h3>Light, dark or system</h3>
@@ -119,11 +119,23 @@
           </li>
           <li class="feature tab-desktop">
             <h3>A command-line tool too</h3>
-            <p><code>avdstudio</code> lists, starts and checks devices from a terminal. <code>list</code> and <code>doctor</code> can print JSON for scripts.</p>
+            <p><code>avdstudio</code> lists, creates, starts and deletes devices, checks your setup and installs what is missing. Most commands can print JSON for scripts.</p>
           </li>
           <li class="feature tab-xr">
             <h3>Updates you control</h3>
             <p>AVD Studio can tell you when a new version is out, show the release notes and download the DMG with checksum verification. Turn the check off in Settings.</p>
+          </li>
+          <li class="feature tab-foldable">
+            <h3>Create devices in seconds</h3>
+            <p>Pick a type, a hardware definition and one of your installed Android versions, name it, and choose RAM, storage and an SD card. Like Android Studio, Google Play, the GPU and the device frame are switched on for you.</p>
+          </li>
+          <li class="feature tab-tablet">
+            <h3>Set up Android in one click</h3>
+            <p>No SDK yet? AVD Studio installs the command-line tools, Java, the emulator and the system images your devices need through Homebrew, after you accept Google's licence. No Homebrew? You get the same steps as a script for Terminal.</p>
+          </li>
+          <li class="feature tab-wear">
+            <h3>Your icon in the menu bar</h3>
+            <p>Choose from ten icons, a phone, a watch, a TV or a little droid among them, and keep the one you like.</p>
           </li>
           <li class="feature">
             <h3>Private by design</h3>
@@ -290,9 +302,11 @@ Started Pixel_9 (pid 48213).
             </header>
             <p>Install the app as a cask from the project's tap. Update it later with <code>brew upgrade --cask avd-studio</code>.</p>
             <div class="cmd">
-              <pre><code id="cmd-cask">brew tap mrcsxsiq/avd-studio https://github.com/mrcsxsiq/avd-studio &amp;&amp; brew install --cask avd-studio</code></pre>
+              <pre><code id="cmd-cask">brew tap mrcsxsiq/avd-studio https://github.com/mrcsxsiq/avd-studio
+brew install --cask mrcsxsiq/avd-studio/avd-studio</code></pre>
               <button class="copy" type="button" data-copy="cmd-cask" aria-label="Copy the Homebrew cask install command" hidden>Copy</button>
             </div>
+            <p class="note">Homebrew 6 and later only loads casks from third-party taps that you trust. Installing by the full name, as above, trusts just this app. To use the short name <code>avd-studio</code> instead, run <code>brew trust --cask mrcsxsiq/avd-studio/avd-studio</code> first.</p>
           </article>
 
           <article class="channel">
@@ -300,9 +314,9 @@ Started Pixel_9 (pid 48213).
               <h3>Command-line tool</h3>
               <span class="pill">With the first release</span>
             </header>
-            <p>Install just the <code>avdstudio</code> command.</p>
+            <p>Install just the <code>avdstudio</code> command (after adding the tap above).</p>
             <div class="cmd">
-              <pre><code id="cmd-cli">brew install avdstudio</code></pre>
+              <pre><code id="cmd-cli">brew install mrcsxsiq/avd-studio/avdstudio</code></pre>
               <button class="copy" type="button" data-copy="cmd-cli" aria-label="Copy the command-line tool install command" hidden>Copy</button>
             </div>
           </article>
@@ -326,23 +340,13 @@ Started Pixel_9 (pid 48213).
       <div class="wrap">
         <div class="section-head">
           <h2 id="roadmap-title">Coming next.</h2>
-          <p class="lead">None of this is available yet. It is what we are working towards.</p>
+          <p class="lead">Not available yet. It is what we are working towards.</p>
         </div>
         <ul class="next">
           <li>
             <span class="pill">Coming next</span>
-            <h3>Create virtual devices</h3>
-            <p>Make new virtual devices from inside the app.</p>
-          </li>
-          <li>
-            <span class="pill">Coming next</span>
-            <h3>Install system images</h3>
-            <p>Get the system images your devices need without leaving AVD Studio.</p>
-          </li>
-          <li>
-            <span class="pill">Coming next</span>
-            <h3>Install the Android SDK</h3>
-            <p>Let AVD Studio install the Android SDK for you, with one click.</p>
+            <h3>Download any system image</h3>
+            <p>Choose the Android version to download while you create a device. Today AVD Studio installs the images your existing devices need.</p>
           </li>
         </ul>
       </div>

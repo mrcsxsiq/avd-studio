@@ -91,7 +91,8 @@ CI (`.github/workflows/ci.yml`) runs lint, Kotlin tests, Swift unit/bridge tests
 - Do not add a `CNAME` file to `website/` or hard-code the production domain; see `website/README.md`.
 - Do not add web fonts, CDNs or third-party scripts to the website (its CSP would block them anyway).
 - Do not run `git push`, create tags or publish releases unless explicitly asked. `scripts/release.sh` is
-  deliberately read-only about git: it prints the commands for a human to run.
+  deliberately read-only about git: it prints the commands for a human to run. Releases are normally cut by the
+  "Create release" workflow (`.github/workflows/tag.yml`, see `docs/RELEASING.md`).
 
 ## Conventions
 
