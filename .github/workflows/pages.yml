@@ -1,0 +1,92 @@
+name: Website
+
+# Publishes website/ to GitHub Pages with the official Pages actions (no gh-pages branch).
+#
+# The site is plain static files. Source files use the literal placeholder __SITE_URL__ wherever an absolute URL is
+# unavoidable (canonical, Open Graph, sitemap, robots.txt, the 404 page). This workflow replaces it with the
+# repository variable SITE_URL, or with the github.io project URL when the variable is not set.
+#
+# The custom domain (avdstudio.dev) is NOT configured here. With Actions-based deployment it lives in the
+# repository's Pages settings. See website/README.md for the steps once DNS exists.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; let a running deployment finish instead of cancelling it half way.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Build the site into _site
+        env:
+          # Passed through the environment, never interpolated into the script below.
+          SITE_URL: ${{ vars.SITE_URL || 'https://mrcsxsiq.github.io/avd-studio' }}
+        run: |
+          set -euo pipefail
+
+          # 1. Normalise and validate the URL: https only, no trailing slash, and only characters that are safe
+          #    inside a sed replacement ('|' is the delimiter and cannot occur, nor can '&' or '\').
+          site_url="${SITE_URL%/}"
+          if ! printf '%s' "$site_url" | grep -Eq '^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._~-]+)*$'; then
+            echo "::error::SITE_URL must look like https://example.com or https://user.github.io/repo, got: ${site_url}"
+            exit 1
+          fi
+
+          # 2. Copy the site (dotfiles such as .nojekyll included), minus files that are not part of it.
+          rm -rf _site
+          mkdir _site
+          cp -R website/. _site/
+          rm -rf _site/tools _site/README.md
+
+          # 3. Replace the placeholder in every text file that can carry an absolute URL.
+          find _site -type f \( -name '*.html' -o -name '*.xml' -o -name '*.txt' -o -name '*.webmanifest' \) \
+            -exec sed -i.bak "s|__SITE_URL__|${site_url}|g" {} +
+          find _site -type f -name '*.bak' -delete
+
+          # 4. Fail if the placeholder survived in any file.
+          if grep -rIl '__SITE_URL__' _site; then
+            echo "::error::__SITE_URL__ is still present in the files listed above"
+            exit 1
+          fi
+
+          # 5. Fail on root-relative links, missing files and third-party requests in the built site.
+          python3 -I website/tools/check-site.py _site --site-url "${site_url}"
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+          # Dotfiles are skipped by default. website/ only has .nojekyll (harmless, and Actions deployments never
+          # run Jekyll), but ship it so the artifact matches the source folder.
+          include-hidden-files: true
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

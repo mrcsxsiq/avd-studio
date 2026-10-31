@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AVD Studio: manage Android emulators on your Mac</title>
+  <meta name="description" content="AVD Studio is a native macOS app and command-line tool for Android Virtual Devices. Browse your emulators as a colourful grid, start them from the menu bar, and keep using your own Android SDK.">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#0a0c1c" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f5f7fd" media="(prefers-color-scheme: light)">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'self'; script-src 'self'; connect-src https://api.github.com; manifest-src 'self'; base-uri 'none'; form-action 'none'">
+  <link rel="canonical" href="__SITE_URL__/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="AVD Studio">
+  <meta property="og:title" content="AVD Studio: Android emulators, native on your Mac">
+  <meta property="og:description" content="A native macOS app and command-line tool to manage Android Virtual Devices. Open source, no tracking, early development.">
+  <meta property="og:url" content="__SITE_URL__/">
+  <meta property="og:image" content="__SITE_URL__/assets/og.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="AVD Studio app icon next to the name AVD Studio and the line: Every Android emulator, one click away.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="AVD Studio: Android emulators, native on your Mac">
+  <meta name="twitter:description" content="A native macOS app and command-line tool to manage Android Virtual Devices. Open source, no tracking, early development.">
+  <meta name="twitter:image" content="__SITE_URL__/assets/og.png">
+  <meta name="twitter:image:alt" content="AVD Studio app icon next to the name AVD Studio and the line: Every Android emulator, one click away.">
+
+  <link rel="icon" href="assets/favicon.ico" sizes="32x32">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="manifest" href="site.webmanifest">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="assets/main.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="./" aria-label="AVD Studio, home">
+        <img src="assets/icon-192.png" width="30" height="30" alt="">
+        <span>AVD Studio</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <ul>
+          <li class="nav-optional"><a href="#features">Features</a></li>
+          <li class="nav-optional"><a href="#menu-bar">Menu bar</a></li>
+          <li class="nav-optional"><a href="#cli">Command line</a></li>
+          <li><a href="#install">Install</a></li>
+          <li class="nav-optional"><a href="#faq">FAQ</a></li>
+          <li><a class="nav-cta" href="https://github.com/mrcsxsiq/avd-studio">GitHub</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap hero-copy">
+        <img class="hero-icon" src="assets/icon-192.png" width="96" height="96" alt="AVD Studio app icon: a phone with a play button in front of a second screen, on a green to violet gradient">
+        <h1 id="hero-title">Every Android emulator, one click away.</h1>
+        <p class="lead">AVD Studio is a native Mac app for your Android Virtual Devices. See them as a colourful grid, start one with a double-click, and keep the terminal for when you want it.</p>
+        <div class="cta" data-release data-state="static">
+          <a class="btn btn-primary" href="https://github.com/mrcsxsiq/avd-studio/releases" data-download><span data-label>Open GitHub Releases</span></a>
+          <a class="btn btn-ghost" href="https://github.com/mrcsxsiq/avd-studio" data-repo-link><span data-label>View on GitHub</span></a>
+        </div>
+        <p class="cta-note" data-note>AVD Studio is in early development. Releases are published on GitHub.</p>
+        <ul class="facts" aria-label="At a glance">
+          <li>Apple Silicon, macOS 14 or newer</li>
+          <li>Uses the Android SDK you already have</li>
+          <li>Free and open source</li>
+        </ul>
+      </div>
+
+      <div class="wrap hero-shot">
+        <figure class="shot">
+          <picture>
+            <source media="(prefers-color-scheme: light)" srcset="assets/grid-light-800.webp 800w, assets/grid-light-1600.webp 1600w" sizes="(min-width: 1200px) 1120px, calc(100vw - 40px)">
+            <img src="assets/grid-dark-1600.webp" srcset="assets/grid-dark-800.webp 800w, assets/grid-dark-1600.webp 1600w" sizes="(min-width: 1200px) 1120px, calc(100vw - 40px)" width="1600" height="1137" fetchpriority="high" decoding="async" alt="The AVD Studio device grid: colourful cards for a Pixel 9 that is running, a foldable, a tablet, a Wear OS watch, a TV, a car, a desktop, an XR headset and a phone that needs a system image.">
+          </picture>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section" id="features" aria-labelledby="features-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="features-title">Everything you do with an emulator, in one calm window.</h2>
+          <p class="lead">No AVD Manager dialogs and no remembered commands. These features exist today.</p>
+        </div>
+
+        <ul class="features">
+          <li class="feature tab-phone">
+            <h3>A grid made of your devices</h3>
+            <p>Each virtual device is a card with its own gradient, so a phone never looks like a foldable. API level, RAM and Play Store support sit right on the card.</p>
+          </li>
+          <li class="feature tab-foldable">
+            <h3>Grouped by type, easy to search</h3>
+            <p>The sidebar sorts devices into phone, foldable, tablet, Wear OS, TV, automotive, desktop and XR. Type a few letters to find one.</p>
+          </li>
+          <li class="feature tab-tablet">
+            <h3>Start with a double-click</h3>
+            <p>Double-click a card to start or stop it. Each device also offers cold boot, wipe data and start (it asks you to confirm first), and show in Finder.</p>
+          </li>
+          <li class="feature tab-wear">
+            <h3>Always one click away</h3>
+            <p>A menu bar item starts, tests and stops emulators without opening the window, and a dot shows when one is running.</p>
+          </li>
+          <li class="feature tab-tv">
+            <h3>Light, dark or system</h3>
+            <p>AVD Studio follows your Mac's appearance, or you can pin it to light or dark in Settings.</p>
+          </li>
+          <li class="feature tab-automotive">
+            <h3>Your SDK, your folders</h3>
+            <p>Choose the Android SDK folder and the folder where your virtual devices live, for example on an external SSD. A Diagnostics screen shows what is missing.</p>
+          </li>
+          <li class="feature tab-desktop">
+            <h3>A command-line tool too</h3>
+            <p><code>avdstudio</code> lists, starts and checks devices from a terminal. <code>list</code> and <code>doctor</code> can print JSON for scripts.</p>
+          </li>
+          <li class="feature tab-xr">
+            <h3>Updates you control</h3>
+            <p>AVD Studio can tell you when a new version is out, show the release notes and download the DMG with checksum verification. Turn the check off in Settings.</p>
+          </li>
+          <li class="feature">
+            <h3>Private by design</h3>
+            <p>No analytics, no tracking and no accounts. The only network traffic is the optional update check.</p>
+          </li>
+        </ul>
+
+        <p class="kinds-intro">Eight kinds of device, and each one keeps its own colour in the app.</p>
+        <ul class="kinds" aria-label="Device types AVD Studio groups by">
+          <li class="tab-phone">Phone</li>
+          <li class="tab-foldable">Foldable</li>
+          <li class="tab-tablet">Tablet</li>
+          <li class="tab-wear">Wear OS</li>
+          <li class="tab-tv">TV</li>
+          <li class="tab-automotive">Automotive</li>
+          <li class="tab-desktop">Desktop</li>
+          <li class="tab-xr">XR</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section band" id="screenshots" aria-labelledby="screens-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="screens-title">Calm when idle. Clear when running.</h2>
+          <p class="lead">Every card shows where a device stands: stopped, starting, running, or waiting for a system image.</p>
+        </div>
+
+        <div class="shots">
+          <figure>
+            <div class="shot">
+              <picture>
+                <source media="(prefers-color-scheme: light)" srcset="assets/card-gallery-light-800.webp 800w, assets/card-gallery-light-1600.webp 1600w" sizes="(min-width: 900px) 640px, calc(100vw - 40px)">
+                <img src="assets/card-gallery-dark-1600.webp" srcset="assets/card-gallery-dark-800.webp 800w, assets/card-gallery-dark-1600.webp 1600w" sizes="(min-width: 900px) 640px, calc(100vw - 40px)" width="1600" height="1101" loading="lazy" decoding="async" alt="Device cards in AVD Studio: a Pixel 9 shown stopped, running and starting, then a foldable, a tablet, a Wear OS watch, a TV, a car and a phone that needs a system image.">
+              </picture>
+            </div>
+            <figcaption><strong>One card, every state</strong>The same Pixel 9 stopped, running and starting. A device with a missing system image says so.</figcaption>
+          </figure>
+
+          <figure>
+            <div class="shot shot-light">
+              <img src="assets/setup-light-1000.webp" width="1000" height="789" loading="lazy" decoding="async" alt="AVD Studio's setup screen reading Android SDK not found. It lists sdkmanager, avdmanager, emulator and adb as missing, with buttons to choose the SDK folder, copy the Homebrew install command and check again.">
+            </div>
+            <figcaption><strong>A clear first run</strong>No Android SDK found? AVD Studio lists the tools it is missing, and lets you choose a folder, copy the Homebrew command or check again.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="menu-bar" aria-labelledby="menu-title">
+      <div class="wrap menu-story">
+        <div>
+          <h2 id="menu-title">Start an emulator without opening the app.</h2>
+          <p class="lead">AVD Studio lives in your menu bar, so a test device is one click away while you stay in your editor.</p>
+          <ul class="points">
+            <li>
+              <strong>Start, test and stop</strong>
+              <span>Your devices are listed by type in the popover. Control them there, without opening the window.</span>
+            </li>
+            <li>
+              <strong>A dot shows what is running</strong>
+              <span>When an emulator is running, a dot appears on the menu bar icon.</span>
+            </li>
+            <li>
+              <strong>Pick your own icon</strong>
+              <span>Choose from 10 menu bar icons, including a little robot droid. Prefer a clean bar? Hide it in Settings.</span>
+            </li>
+          </ul>
+        </div>
+        <div class="popover-wrap">
+          <div class="popover">
+            <picture>
+              <source media="(prefers-color-scheme: light)" srcset="assets/menu-bar-light-680.webp">
+              <img src="assets/menu-bar-dark-680.webp" width="680" height="1200" loading="lazy" decoding="async" alt="The AVD Studio menu bar popover. Two running emulators have stop buttons. Phones, foldables, tablets and Wear OS devices follow with play buttons, and an Open AVD Studio link sits at the bottom.">
+            </picture>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section band" id="cli" aria-labelledby="cli-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="cli-title">Prefer the terminal? It is there too.</h2>
+          <p class="lead">The <code>avdstudio</code> command lists, starts and checks your devices, and prints JSON when a script is listening.</p>
+        </div>
+
+        <figure class="terminal-figure">
+          <div class="terminal">
+            <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span></div>
+<pre tabindex="0" aria-label="Example terminal session"><code><span class="t-prompt">avdstudio list</span>
+<span class="t-head">NAME                 TYPE      ANDROID     DEVICE              SIZE    STATUS</span>
+Pixel_9              Phone     Android 16  pixel_9             3.4 GB  <span class="t-ok">ready</span>
+Pixel_9_Pro_Fold     Foldable  Android 15  pixel_9_pro_fold    5.1 GB  <span class="t-ok">ready</span>
+Pixel_Tablet         Tablet    Android 14  pixel_tablet        4.8 GB  <span class="t-ok">ready</span>
+Wear_OS_Large_Round  Wear OS   Android 14  wearos_large_round  2.3 GB  <span class="t-ok">ready</span>
+Pixel_7_API_33       Phone     Android 13  pixel_7             0.3 GB  <span class="t-warn">needs system image</span>
+
+<span class="t-prompt">avdstudio start Pixel_9</span>
+Started Pixel_9 (pid 48213).
+
+<span class="t-prompt">avdstudio doctor</span>
+<span class="t-ok">✓</span> <span class="t-bold">Android SDK</span>  /Users/you/Library/Android/sdk (from ANDROID_HOME)
+<span class="t-ok">✓</span> <span class="t-bold">sdkmanager</span>  /Users/you/Library/Android/sdk/cmdline-tools/latest/bin/sdkmanager
+<span class="t-ok">✓</span> <span class="t-bold">avdmanager</span>  /Users/you/Library/Android/sdk/cmdline-tools/latest/bin/avdmanager
+<span class="t-ok">✓</span> <span class="t-bold">emulator</span>  /Users/you/Library/Android/sdk/emulator/emulator
+<span class="t-ok">✓</span> <span class="t-bold">adb</span>  /Users/you/Library/Android/sdk/platform-tools/adb
+<span class="t-ok">✓</span> <span class="t-bold">Java runtime</span>  /Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home
+<span class="t-ok">✓</span> <span class="t-bold">Virtual device folder</span>  /Users/you/.android/avd — 5 device(s)
+<span class="t-warn">!</span> <span class="t-bold">System images</span>  1 of 5 device(s) need a system image that is not installed: Pixel_7_API_33
+    <span class="t-dim">Install the matching image with sdkmanager, or delete the device.</span>
+
+<span class="t-warn">Ready, with warnings.</span></code></pre>
+          </div>
+          <figcaption class="terminal-note">Sample output with made-up devices and paths. Yours will differ.</figcaption>
+        </figure>
+
+        <dl class="commands">
+          <div>
+            <dt>avdstudio list</dt>
+            <dd>List your virtual devices. Add <code>--json</code> for machine-readable output.</dd>
+          </div>
+          <div>
+            <dt>avdstudio start &lt;name&gt;</dt>
+            <dd>Start a device. <code>--cold-boot</code> ignores the saved snapshot, <code>--wipe-data</code> resets it first, and <code>--print-command</code> only prints the emulator command.</dd>
+          </div>
+          <div>
+            <dt>avdstudio doctor</dt>
+            <dd>Check that the Android SDK, Java and your device folder are ready. Also supports <code>--json</code>.</dd>
+          </div>
+          <div>
+            <dt>avdstudio sdk-path</dt>
+            <dd>Print the Android SDK folder in use.</dd>
+          </div>
+        </dl>
+
+        <p class="feature-note">Auto-detection finds your SDK and devices. To choose them yourself, pass <code>--sdk-path</code> and <code>--avd-home</code>, or set <code>AVDSTUDIO_SDK_PATH</code> and <code>AVDSTUDIO_AVD_HOME</code>.</p>
+      </div>
+    </section>
+
+    <section class="section" id="install" aria-labelledby="install-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="install-title">Install AVD Studio.</h2>
+          <p class="lead">No release has been published yet. Here is how AVD Studio will arrive with the first one, and how to build it today.</p>
+        </div>
+
+        <p class="requirements">AVD Studio needs an Apple Silicon Mac with macOS 14 or newer. It uses the Android command-line tools and emulator already on your Mac and never bundles the Android SDK. Missing the tools? <code>brew install --cask android-commandlinetools</code> adds them.</p>
+
+        <div class="channels">
+          <article class="channel">
+            <header>
+              <h3>Download the app</h3>
+              <span class="pill" data-dmg-pill>With the first release</span>
+            </header>
+            <p>The app as a DMG on GitHub Releases.</p>
+            <a class="btn btn-ghost" href="https://github.com/mrcsxsiq/avd-studio/releases" data-download><span data-label>Open GitHub Releases</span></a>
+          </article>
+
+          <article class="channel">
+            <header>
+              <h3>Homebrew</h3>
+              <span class="pill">With the first release</span>
+            </header>
+            <p>Install the app as a cask from the project's tap. Update it later with <code>brew upgrade --cask avd-studio</code>.</p>
+            <div class="cmd">
+              <pre><code id="cmd-cask">brew tap mrcsxsiq/avd-studio https://github.com/mrcsxsiq/avd-studio &amp;&amp; brew install --cask avd-studio</code></pre>
+              <button class="copy" type="button" data-copy="cmd-cask" aria-label="Copy the Homebrew cask install command" hidden>Copy</button>
+            </div>
+          </article>
+
+          <article class="channel">
+            <header>
+              <h3>Command-line tool</h3>
+              <span class="pill">With the first release</span>
+            </header>
+            <p>Install just the <code>avdstudio</code> command.</p>
+            <div class="cmd">
+              <pre><code id="cmd-cli">brew install avdstudio</code></pre>
+              <button class="copy" type="button" data-copy="cmd-cli" aria-label="Copy the command-line tool install command" hidden>Copy</button>
+            </div>
+          </article>
+
+          <article class="channel">
+            <header>
+              <h3>Build from source</h3>
+              <span class="pill pill-now">Available now</span>
+            </header>
+            <p>Clone the repository to build the app and the command-line tool yourself. The repository README has the build steps.</p>
+            <div class="cmd">
+              <pre><code id="cmd-clone">git clone https://github.com/mrcsxsiq/avd-studio.git</code></pre>
+              <button class="copy" type="button" data-copy="cmd-clone" aria-label="Copy the git clone command" hidden>Copy</button>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section band" id="roadmap" aria-labelledby="roadmap-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="roadmap-title">Coming next.</h2>
+          <p class="lead">None of this is available yet. It is what we are working towards.</p>
+        </div>
+        <ul class="next">
+          <li>
+            <span class="pill">Coming next</span>
+            <h3>Create virtual devices</h3>
+            <p>Make new virtual devices from inside the app.</p>
+          </li>
+          <li>
+            <span class="pill">Coming next</span>
+            <h3>Install system images</h3>
+            <p>Get the system images your devices need without leaving AVD Studio.</p>
+          </li>
+          <li>
+            <span class="pill">Coming next</span>
+            <h3>Install the Android SDK</h3>
+            <p>Let AVD Studio install the Android SDK for you, with one click.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section" id="faq" aria-labelledby="faq-title">
+      <div class="wrap faq-layout">
+        <header>
+          <h2 id="faq-title">Questions, answered.</h2>
+          <p class="lead">Anything else? Open an issue on GitHub.</p>
+        </header>
+        <div class="faq">
+          <details>
+            <summary>Can I download it today?</summary>
+            <div><p>Not yet. AVD Studio is in early development and no release has been published. This page checks GitHub for the latest release and shows a download button as soon as there is one. You can also watch the repository to hear about the first release.</p></div>
+          </details>
+          <details>
+            <summary>Does AVD Studio include the Android SDK?</summary>
+            <div><p>No. It uses the Android command-line tools and emulator already on your Mac and never bundles the Android SDK. If it cannot find them, the setup screen lets you choose a folder or copy the Homebrew command, and Diagnostics shows what is missing.</p></div>
+          </details>
+          <details>
+            <summary>Does it run on Intel Macs?</summary>
+            <div><p>No. AVD Studio needs an Apple Silicon Mac running macOS 14 or newer.</p></div>
+          </details>
+          <details>
+            <summary>What does it do with my data?</summary>
+            <div>
+              <p>Nothing. There is no analytics, no tracking and no account. The only network traffic is the optional update check against the GitHub Releases API, and you can turn it off in Settings.</p>
+              <p>This website sets no cookies and loads no third-party scripts, fonts or trackers. Its download button asks the GitHub API for the latest release.</p>
+            </div>
+          </details>
+          <details>
+            <summary>How do updates work?</summary>
+            <div>
+              <p>AVD Studio can check GitHub Releases for a newer version. It shows the installed version next to the new one with the release notes, downloads the DMG and verifies its checksum, and notifies you when a new version is released. You can turn the check off in Settings.</p>
+              <p>If you installed with Homebrew, update with <code>brew upgrade --cask avd-studio</code>.</p>
+            </div>
+          </details>
+          <details>
+            <summary>Is it free?</summary>
+            <div><p>Yes. AVD Studio is free and open source under the MIT License.</p></div>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div class="footer-top">
+        <div>
+          <a class="brand" href="./" aria-label="AVD Studio, back to top">
+            <img src="assets/icon-192.png" width="30" height="30" alt="">
+            <span>AVD Studio</span>
+          </a>
+          <p>A native macOS app and command-line tool for Android Virtual Devices. Open source under the MIT License.</p>
+        </div>
+        <nav aria-label="Project links">
+          <ul class="footer-links">
+            <li><a href="https://github.com/mrcsxsiq/avd-studio">GitHub</a></li>
+            <li><a href="https://github.com/mrcsxsiq/avd-studio/releases">Releases</a></li>
+            <li><a href="https://github.com/mrcsxsiq/avd-studio/blob/main/CHANGELOG.md">Changelog</a></li>
+            <li><a href="https://github.com/mrcsxsiq/avd-studio/issues">Issues</a></li>
+            <li><a href="https://github.com/mrcsxsiq/avd-studio/blob/main/LICENSE">MIT License</a></li>
+          </ul>
+        </nav>
+      </div>
+      <div class="legal">
+        <p>Android is a trademark of Google LLC. Apple, macOS, Swift and SwiftUI are trademarks of Apple Inc. AVD Studio is an independent project, not affiliated with or endorsed by Google or Apple.</p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "AVD Studio",
+  "short_name": "AVD Studio",
+  "description": "A native macOS app and command-line tool to manage Android Virtual Devices.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "browser",
+  "background_color": "#0a0c1c",
+  "theme_color": "#0a0c1c",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
