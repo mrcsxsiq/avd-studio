@@ -45,8 +45,34 @@ targets:
         LSApplicationCategoryType: public.app-category.developer-tools
         LSMinimumSystemVersion: "14.0"
         NSHumanReadableCopyright: "Copyright © 2026 Marcos Paulo Farias. Released under the MIT License."
+    # The command-line tool ships inside the app, so one install gives both the app and `avdstudio`.
+    postBuildScripts:
+      - name: Embed the avdstudio command-line tool
+        basedOnDependencyAnalysis: false
+        script: |
+          set -euo pipefail
+          source="${SRCROOT}/../cli/build/bin/macosArm64/releaseExecutable/avdstudio.kexe"
+          helper="${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Helpers/avdstudio"
+          if [ ! -f "$source" ]; then
+            if [ "${CONFIGURATION}" = "Release" ]; then
+              echo "error: the command-line tool is not built. Run: make cli (or make core)" >&2
+              exit 1
+            fi
+            echo "warning: the command-line tool is not built, so this Debug build will not include 'avdstudio'. Run: make cli"
+            exit 0
+          fi
+          mkdir -p "$(dirname "$helper")"
+          cp -f "$source" "$helper"
+          chmod 755 "$helper"
+          identity="${EXPANDED_CODE_SIGN_IDENTITY:--}"
+          # Nested code needs its own signature (hardened runtime, required for notarization)...
+          /usr/bin/codesign --force --sign "$identity" --options runtime "$helper"
+          # ...and the app's seal must include it. Xcode does not guarantee that its own CodeSign step runs after
+          # this phase, and a helper added after sealing makes `codesign --verify` fail, so seal the app again here.
+          /usr/bin/codesign --force --sign "$identity" --options runtime "${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}"
     settings:
       base:
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
         PRODUCT_BUNDLE_IDENTIFIER: dev.marcos.avdstudio
         PRODUCT_NAME: AVD Studio
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

@@ -15,8 +15,8 @@ help: ## Show this help
 bootstrap: ## Install the developer tools from the Brewfile
 	brew bundle
 
-core: ## Build the Kotlin core and install the XCFramework into macos/Frameworks
-	$(GRADLE) :core:installXCFramework
+core: ## Build the Kotlin core (XCFramework into macos/Frameworks) and the CLI the app embeds
+	$(GRADLE) :core:installXCFramework :cli:linkReleaseExecutableMacosArm64
 
 generate: core ## Generate macos/AVDStudio.xcodeproj
 	./scripts/generate-project.sh

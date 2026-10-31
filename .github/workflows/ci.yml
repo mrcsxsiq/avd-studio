@@ -52,8 +52,8 @@ jobs:
         run: |
           swift format lint --strict --recursive \
             macos/Sources macos/Tests macos/App macos/Package.swift scripts/generate-icon.swift
-      - name: Build the Kotlin core as an XCFramework
-        run: ./gradlew :core:installXCFramework --stacktrace
+      - name: Build the Kotlin core as an XCFramework, and the CLI the app embeds
+        run: ./gradlew :core:installXCFramework :cli:linkReleaseExecutableMacosArm64 --stacktrace
       - name: Unit and bridge tests
         # Screenshot tests have their own job: their references depend on the macOS version.
         run: cd macos && swift test --skip AVDStudioSnapshotTests
