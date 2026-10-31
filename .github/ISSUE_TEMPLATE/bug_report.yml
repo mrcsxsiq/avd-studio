@@ -1,0 +1,58 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time. The more precise the report, the faster the fix.
+  - type: input
+    id: version
+    attributes:
+      label: AVD Studio version
+      description: "App: Settings → Updates. CLI: `avdstudio --version`."
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: part
+    attributes:
+      label: Where does it happen?
+      options: [macOS app, Menu bar item, Command-line tool, Setup / installation, Updates, Website]
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac
+      placeholder: "macOS 15.1, MacBook Pro M3"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open AVD Studio
+        2. Click …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: Error messages verbatim, screenshots if it is visual.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `avdstudio doctor --json` (or Settings → Diagnostics)
+      description: Remove anything you consider private (paths are usually fine).
+      render: json

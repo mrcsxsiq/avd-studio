@@ -1,0 +1,26 @@
+name: Feature request
+description: An idea to make AVD Studio better
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The situation, not the solution. "I keep needing to…"
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+  - type: dropdown
+    id: part
+    attributes:
+      label: Which part?
+      options: [macOS app, Menu bar item, Command-line tool, Both app and CLI, Website / docs]
