@@ -75,6 +75,8 @@ class AvdRepositoryTest {
         assertEquals("10G", avd.storage)
         assertEquals(ScreenSpec(1080, 2400, 420), avd.screen)
         assertEquals(AvdHealth.READY, avd.health)
+        assertEquals("system-images/android-37.0/google_apis_playstore/arm64-v8a", avd.systemImage)
+        assertEquals("system-images;android-37.0;google_apis_playstore;arm64-v8a", avd.systemImagePackage)
         assertTrue(avd.diskUsageBytes >= 2048)
     }
 

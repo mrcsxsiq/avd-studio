@@ -158,4 +158,50 @@ class AvdStudioCoreTest {
 
         assertTrue(error.message.orEmpty().contains("No such process"))
     }
+
+    @Test
+    fun nextStepsForAnEmptyMachineListOnlyThePrerequisites() {
+        val steps = core().doctor().nextSteps
+
+        assertEquals(2, steps.size)
+        assertTrue(steps[0].contains("brew install --cask android-commandlinetools"))
+        assertTrue(steps[1].contains("brew install openjdk@17"))
+    }
+
+    @Test
+    fun nextStepsGiveExactSdkmanagerCommandsForMissingPackagesAndSystemImages() {
+        fs.touch("$sdk/cmdline-tools/latest/bin/sdkmanager")
+        fs.touch("$sdk/cmdline-tools/latest/bin/avdmanager")
+        fs.touch("/jdk/bin/java")
+        fs.touch("$HOME/.android/avd/TV.ini", "path=$HOME/.android/avd/TV.avd\ntarget=android-34")
+        fs.touch(
+            "$HOME/.android/avd/TV.avd/config.ini",
+            "hw.device.name=tv_4k\nimage.sysdir.1=system-images/android-34/android-tv/arm64-v8a/",
+        )
+        fs.touch("$HOME/.android/avd/Phone.ini", "path=$HOME/.android/avd/Phone.avd\ntarget=android-34")
+        fs.touch(
+            "$HOME/.android/avd/Phone.avd/config.ini",
+            "hw.device.name=pixel_9\nimage.sysdir.1=system-images/android-34/google_apis/arm64-v8a/",
+        )
+
+        val steps = core("JAVA_HOME" to "/jdk").doctor().nextSteps
+
+        assertEquals(
+            listOf(
+                "Install the missing SDK packages with `sdkmanager --sdk_root=$sdk \"emulator\" \"platform-tools\"`.",
+                "Install the system images your devices need with `sdkmanager --sdk_root=$sdk " +
+                    "\"system-images;android-34;google_apis;arm64-v8a\" \"system-images;android-34;android-tv;arm64-v8a\"` " +
+                    "(or delete those devices).",
+            ),
+            steps,
+        )
+    }
+
+    @Test
+    fun nextStepsAreEmptyWhenEverythingIsReady() {
+        fs.installSdk(sdk)
+        fs.touch("/jdk/bin/java")
+
+        assertTrue(core("JAVA_HOME" to "/jdk").doctor().nextSteps.isEmpty())
+    }
 }

@@ -56,6 +56,7 @@ internal class AvdRepository(
             screen = screen,
             health = healthOf(config, systemImageDir, sdkPath),
             diskUsageBytes = avdDirectory?.let { diskUsage(it) } ?: 0L,
+            systemImage = systemImageDir?.trim('/')?.takeIf { it.isNotEmpty() },
         )
     }
 

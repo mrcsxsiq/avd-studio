@@ -41,8 +41,10 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
 - Choose the menu bar icon from 10 options (phone, phone & tablet, tablet, watch, TV, car, play, terminal,
   bolt and a little droid); a dot on the icon shows that an emulator is running.
 - New app icon.
-- `avdstudio` command-line tool with `list`, `start`, `doctor` and `sdk-path`; `list` and `doctor`
-  support `--json`, and `--sdk-path` / `--avd-home` (or `AVDSTUDIO_SDK_PATH` / `AVDSTUDIO_AVD_HOME`)
+- `avdstudio` command-line tool with `list`, `start`, `doctor` and `sdk-path`; `doctor` ends with numbered
+  next steps and copy-pasteable commands (including the exact `sdkmanager "system-images;…"` package for each
+  device whose image is missing) and `--help` explains what it checks, its exit codes and examples; `list` and
+  `doctor` support `--json`, and `--sdk-path` / `--avd-home` (or `AVDSTUDIO_SDK_PATH` / `AVDSTUDIO_AVD_HOME`)
   override auto-detection.
 
 [Unreleased]: https://github.com/mrcsxsiq/avd-studio/commits/main

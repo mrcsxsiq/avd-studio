@@ -50,4 +50,14 @@ class JavaLocatorTest {
     fun returnsNullWhenThereIsNoJava() {
         assertNull(locate())
     }
+
+    @Test
+    fun findsHomebrewsKegOnlyOpenJdkWhichNeedsNoAdminPassword() {
+        fs.touch("/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home/bin/java")
+
+        val java = locate()
+
+        assertEquals(JavaSource.HOMEBREW, java?.source)
+        assertEquals("/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home", java?.home)
+    }
 }

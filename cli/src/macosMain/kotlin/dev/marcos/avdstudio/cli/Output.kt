@@ -54,6 +54,7 @@ internal data class CheckDto(
 internal data class DoctorDto(
     val healthy: Boolean,
     val checks: List<CheckDto>,
+    val nextSteps: List<String>,
 )
 
 internal fun Avd.toDto() =
@@ -77,6 +78,7 @@ internal fun DoctorReport.toDto() =
     DoctorDto(
         healthy = isHealthy,
         checks = checks.map { CheckDto(it.id, it.status.name.lowercase(), it.title, it.detail, it.hint) },
+        nextSteps = nextSteps,
     )
 
 internal object Output {
@@ -121,9 +123,15 @@ internal object Output {
         buildString {
             report.checks.forEach { check ->
                 appendLine("${symbol(check)} ${TextStyles.bold(check.title)}  ${check.detail}")
-                check.hint?.let { appendLine("    ${TextColors.gray(it)}") }
             }
             appendLine()
+            if (report.nextSteps.isNotEmpty()) {
+                appendLine(TextStyles.bold("Next steps"))
+                report.nextSteps.forEachIndexed { index, step -> appendLine("  ${index + 1}. $step") }
+                appendLine()
+                appendLine(TextColors.gray("Then run `avdstudio doctor` again to check."))
+                appendLine()
+            }
             append(
                 when {
                     !report.isHealthy -> TextColors.red("Not ready: fix the items marked ✗ above.")

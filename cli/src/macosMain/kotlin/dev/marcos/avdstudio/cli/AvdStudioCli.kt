@@ -37,6 +37,9 @@ class AvdStudioCli(
 
     override fun help(context: Context) = "Manage Android Virtual Devices from the terminal."
 
+    override fun helpEpilog(context: Context) =
+        "Something not working? Run `avdstudio doctor`: it checks your setup and tells you exactly how to fix it."
+
     override fun run() = Unit
 }
 
@@ -115,7 +118,24 @@ class DoctorCommand(
     private val location by LocationOptions()
     private val json by option("--json", help = "Print machine-readable JSON.").flag()
 
-    override fun help(context: Context) = "Check that the Android SDK, Java and virtual device folder are ready."
+    override fun help(context: Context) = "Check that everything AVD Studio needs is in place, and say how to fix what is not."
+
+    override fun helpEpilog(context: Context) =
+        """
+        What it checks:
+          - the Android SDK folder and its tools: sdkmanager, avdmanager, emulator, adb
+          - a Java runtime (sdkmanager and avdmanager need one)
+          - the virtual device folder, and devices whose system image is not installed
+
+        For every problem it prints numbered next steps with commands you can copy.
+
+        Exit status: 0 when everything required is ready (warnings are allowed), 1 when something required is missing.
+
+        Examples:
+          avdstudio doctor
+          avdstudio doctor --sdk-path /Volumes/ssd/android-sdk
+          avdstudio doctor --json
+        """.trimIndent()
 
     override fun run() {
         val report = coreFactory().doctor(location.sdkPath, location.avdHome)

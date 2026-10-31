@@ -2,6 +2,7 @@ package dev.marcos.avdstudio.core.doctor
 
 import dev.marcos.avdstudio.core.avd.Avd
 import dev.marcos.avdstudio.core.avd.AvdHealth
+import dev.marcos.avdstudio.core.process.shellQuote
 import dev.marcos.avdstudio.core.sdk.AndroidTool
 import dev.marcos.avdstudio.core.sdk.JavaInstallation
 import dev.marcos.avdstudio.core.sdk.ToolAvailability
@@ -20,6 +21,8 @@ public data class DoctorCheck(
 
 public data class DoctorReport(
     val checks: List<DoctorCheck>,
+    /** What to do, in order, with copy-pasteable commands. Empty when nothing needs fixing. */
+    val nextSteps: List<String> = emptyList(),
 ) {
     public val isHealthy: Boolean
         get() = checks.none { it.status == CheckStatus.FAIL }
@@ -30,7 +33,9 @@ public data class DoctorReport(
 
 internal object Doctor {
     const val INSTALL_COMMAND_LINE_TOOLS = "brew install --cask android-commandlinetools"
-    const val INSTALL_JAVA = "brew install --cask temurin"
+
+    // The keg-only formula needs no administrator password, unlike the Temurin cask.
+    const val INSTALL_JAVA = "brew install openjdk@17"
 
     fun diagnose(
         toolchain: ToolchainStatus,
@@ -38,16 +43,57 @@ internal object Doctor {
         avdHome: String,
         avdHomeExists: Boolean,
         avds: List<Avd>,
-    ): DoctorReport =
-        DoctorReport(
+    ): DoctorReport {
+        val checks =
             buildList {
                 add(sdkCheck(toolchain))
                 toolchain.tools.forEach { add(toolCheck(it.tool, toolchain)) }
                 add(javaCheck(java))
                 add(avdHomeCheck(avdHome, avdHomeExists, avds))
                 systemImageCheck(avds)?.let(::add)
-            },
-        )
+            }
+        return DoctorReport(checks, nextSteps(toolchain, java, avds))
+    }
+
+    /**
+     * Ordered so each step can run after the previous one. Without the command-line tools nothing else can
+     * be installed, so only the prerequisites are listed; a second `doctor` run then lists the rest.
+     */
+    private fun nextSteps(
+        toolchain: ToolchainStatus,
+        java: JavaInstallation?,
+        avds: List<Avd>,
+    ): List<String> {
+        val steps = mutableListOf<String>()
+        val cmdlineToolsMissing =
+            !toolchain.sdkDirectoryExists ||
+                listOf(AndroidTool.SDK_MANAGER, AndroidTool.AVD_MANAGER).any { !toolchain.state(it).isAvailable }
+        if (cmdlineToolsMissing) {
+            steps += "Install the Android command-line tools with `$INSTALL_COMMAND_LINE_TOOLS` " +
+                "(or pick an SDK you already have with --sdk-path)."
+        }
+        if (java == null) steps += "Install a JDK (17 or newer) with `$INSTALL_JAVA`."
+        if (cmdlineToolsMissing) return steps
+
+        val sdkManager = "sdkmanager --sdk_root=${shellQuote(toolchain.sdkPath)}"
+        val missingPackages =
+            listOf(AndroidTool.EMULATOR, AndroidTool.ADB)
+                .filter { !toolchain.state(it).isAvailable }
+                .map { it.sdkPackage }
+        if (missingPackages.isNotEmpty()) {
+            steps += "Install the missing SDK packages with `$sdkManager ${quoted(missingPackages)}`."
+        }
+
+        val images =
+            avds.filter { it.health == AvdHealth.MISSING_SYSTEM_IMAGE }.mapNotNull { it.systemImagePackage }.distinct()
+        if (images.isNotEmpty()) {
+            steps += "Install the system image${if (images.size > 1) "s" else ""} your devices need with " +
+                "`$sdkManager ${quoted(images)}` (or delete those devices)."
+        }
+        return steps
+    }
+
+    private fun quoted(packages: List<String>): String = packages.joinToString(" ") { "\"$it\"" }
 
     private fun sdkCheck(toolchain: ToolchainStatus) =
         if (toolchain.sdkDirectoryExists) {

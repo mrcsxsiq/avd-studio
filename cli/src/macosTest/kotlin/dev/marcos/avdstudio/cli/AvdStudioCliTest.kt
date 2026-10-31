@@ -19,7 +19,16 @@ class AvdStudioCliTest {
     private val sdk = root / "sdk"
     private val avdHome = root / "avd"
 
-    private val cli = AvdStudioCli { AvdStudioCore(NativeCommandRunner(), StaticEnvironment(emptyMap(), root.toString())) }
+    private val cli =
+        AvdStudioCli {
+            AvdStudioCore(
+                NativeCommandRunner(),
+                StaticEnvironment(
+                    mapOf("HOMEBREW_PREFIX" to (root / "homebrew").toString()),
+                    root.toString(),
+                ),
+            )
+        }
 
     @AfterTest
     fun cleanUp() {
@@ -166,5 +175,37 @@ class AvdStudioCliTest {
         assertEquals("9.6 GB", Output.formatBytes(9_623_615_492))
         assertFalse(Output.formatBytes(2_000_000_000_000).contains("GB"))
         assertEquals("2.0 TB", Output.formatBytes(2_000_000_000_000))
+    }
+
+    @Test
+    fun doctorEndsWithNumberedNextStepsAndTellsYouToRunItAgain() {
+        val result = cli.test(arrayOf("doctor") + locations)
+
+        assertEquals(1, result.statusCode)
+        assertContains(result.stdout, "Next steps")
+        assertContains(result.stdout, "1. Install the Android command-line tools with `brew install --cask android-commandlinetools`")
+        assertContains(result.stdout, "Then run `avdstudio doctor` again")
+    }
+
+    @Test
+    fun doctorJsonIncludesTheNextSteps() {
+        val stdout = cli.test(arrayOf("doctor", "--json") + locations).stdout
+
+        assertContains(stdout, "\"nextSteps\": [")
+        assertContains(stdout, "brew install --cask android-commandlinetools")
+    }
+
+    @Test
+    fun doctorHelpExplainsWhatItChecksTheExitCodesAndGivesExamples() {
+        val help = cli.test("doctor --help").stdout
+
+        assertContains(help, "What it checks")
+        assertContains(help, "Exit status")
+        assertContains(help, "avdstudio doctor --sdk-path")
+    }
+
+    @Test
+    fun theMainHelpPointsToDoctorWhenSomethingIsWrong() {
+        assertContains(cli.test("--help").stdout, "Run `avdstudio doctor`")
     }
 }

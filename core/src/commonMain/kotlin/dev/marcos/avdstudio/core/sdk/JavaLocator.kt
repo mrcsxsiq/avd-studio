@@ -35,7 +35,9 @@ internal class JavaLocator(
             buildList {
                 environment.value("JAVA_HOME")?.let { add(JavaInstallation(it, JavaSource.JAVA_HOME)) }
                 add(JavaInstallation("$home/.sdkman/candidates/java/current", JavaSource.SDKMAN))
-                add(JavaInstallation("$homebrewPrefix/opt/openjdk/libexec/openjdk.jdk/Contents/Home", JavaSource.HOMEBREW))
+                for (formula in listOf("openjdk@17", "openjdk@21", "openjdk")) {
+                    add(JavaInstallation("$homebrewPrefix/opt/$formula/libexec/openjdk.jdk/Contents/Home", JavaSource.HOMEBREW))
+                }
                 installedJvms().forEach { add(JavaInstallation(it.toString(), JavaSource.SYSTEM_JVM)) }
                 add(JavaInstallation("/Applications/Android Studio.app/Contents/jbr/Contents/Home", JavaSource.ANDROID_STUDIO))
             }

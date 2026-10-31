@@ -41,7 +41,13 @@ public data class Avd(
     val screen: ScreenSpec?,
     val health: AvdHealth,
     val diskUsageBytes: Long,
+    /** SDK-relative folder of the system image (`system-images/android-34/google_apis/arm64-v8a`), if known. */
+    val systemImage: String? = null,
 ) {
+    /** The `sdkmanager` package that provides [systemImage] (`system-images;android-34;google_apis;arm64-v8a`). */
+    public val systemImagePackage: String?
+        get() = systemImage?.trim('/')?.takeIf { it.isNotEmpty() }?.replace('/', ';')
+
     public val isLaunchable: Boolean
         get() = health == AvdHealth.READY
 }
