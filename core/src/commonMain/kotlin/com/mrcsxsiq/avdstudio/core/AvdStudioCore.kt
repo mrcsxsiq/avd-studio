@@ -7,6 +7,8 @@ import com.mrcsxsiq.avdstudio.core.doctor.Doctor
 import com.mrcsxsiq.avdstudio.core.doctor.DoctorReport
 import com.mrcsxsiq.avdstudio.core.emulator.EmulatorCommands
 import com.mrcsxsiq.avdstudio.core.emulator.EmulatorLaunchOptions
+import com.mrcsxsiq.avdstudio.core.emulator.RunningEmulator
+import com.mrcsxsiq.avdstudio.core.emulator.RunningEmulators
 import com.mrcsxsiq.avdstudio.core.environment.Environment
 import com.mrcsxsiq.avdstudio.core.internal.systemFileSystem
 import com.mrcsxsiq.avdstudio.core.process.Command
@@ -92,4 +94,27 @@ public class AvdStudioCore internal constructor(
         sdkPathOverride: String? = null,
         avdHomeOverride: String? = null,
     ): Int = runner.launchDetached(launchCommand(avdName, options, sdkPathOverride, avdHomeOverride))
+
+    /** Emulators currently running on this Mac, however they were started. Never throws. */
+    public fun runningEmulators(): List<RunningEmulator> =
+        try {
+            val result = runner.run(RunningEmulators.listProcesses)
+            if (result.isSuccess) RunningEmulators.parse(result.standardOutput) else emptyList()
+        } catch (_: CommandException) {
+            emptyList()
+        }
+
+    /**
+     * Asks the emulator running [avdName] to shut down (SIGTERM). The process id is looked up again
+     * right now so a stale id can never signal an unrelated process. Returns false if it is not running.
+     */
+    @Throws(CommandException::class)
+    public fun stopAvd(avdName: String): Boolean {
+        val running = runningEmulators().firstOrNull { it.avdName == avdName } ?: return false
+        val result = runner.run(Command("/bin/kill", listOf("-TERM", running.processId.toString())))
+        if (!result.isSuccess) {
+            throw CommandException("Could not stop $avdName: ${result.standardError.trim().ifEmpty { "kill failed" }}")
+        }
+        return true
+    }
 }

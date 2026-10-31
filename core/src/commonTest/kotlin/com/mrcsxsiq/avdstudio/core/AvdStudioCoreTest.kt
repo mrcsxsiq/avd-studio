@@ -15,8 +15,18 @@ import kotlin.test.assertTrue
 
 private class RecordingRunner : CommandRunner {
     val detached = mutableListOf<Command>()
+    val executed = mutableListOf<Command>()
+    var psOutput = ""
+    var killExitCode = 0
 
-    override fun run(command: Command) = CommandResult(0, "", "")
+    override fun run(command: Command): CommandResult {
+        executed += command
+        return when (command.executable) {
+            "/bin/ps" -> CommandResult(0, psOutput, "")
+            "/bin/kill" -> CommandResult(killExitCode, "", if (killExitCode == 0) "" else "No such process")
+            else -> CommandResult(0, "", "")
+        }
+    }
 
     override fun launchDetached(command: Command): Int {
         detached += command
@@ -109,5 +119,43 @@ class AvdStudioCoreTest {
         assertEquals(CheckStatus.FAIL, checks.getValue("emulator").status)
         assertEquals(CheckStatus.WARNING, checks.getValue("adb").status)
         assertEquals("Install it with `sdkmanager \"emulator\"`.", checks.getValue("emulator").hint)
+    }
+
+    @Test
+    fun reportsRunningEmulatorsFromTheProcessList() {
+        runner.psOutput = "77 /x/qemu-system-aarch64 -avd Pixel_9 -netdelay none\n1 /sbin/launchd"
+
+        val running = core().runningEmulators()
+
+        assertEquals(listOf("Pixel_9"), running.map { it.avdName })
+        assertEquals(77, running.single().processId)
+    }
+
+    @Test
+    fun stopSignalsOnlyTheProcessLookedUpByName() {
+        runner.psOutput = "77 /x/qemu-system-aarch64 -avd Pixel_9\n78 /x/qemu-system-aarch64 -avd Other"
+
+        assertTrue(core().stopAvd("Pixel_9"))
+
+        val kill = runner.executed.single { it.executable == "/bin/kill" }
+        assertEquals(listOf("-TERM", "77"), kill.arguments)
+    }
+
+    @Test
+    fun stopDoesNothingWhenTheDeviceIsNotRunning() {
+        runner.psOutput = "1 /sbin/launchd"
+
+        assertFalse(core().stopAvd("Pixel_9"))
+        assertTrue(runner.executed.none { it.executable == "/bin/kill" })
+    }
+
+    @Test
+    fun stopSurfacesKillFailures() {
+        runner.psOutput = "77 /x/qemu-system-aarch64 -avd Pixel_9"
+        runner.killExitCode = 1
+
+        val error = assertFailsWith<CommandException> { core().stopAvd("Pixel_9") }
+
+        assertTrue(error.message.orEmpty().contains("No such process"))
     }
 }
