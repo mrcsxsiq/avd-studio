@@ -99,6 +99,94 @@ final class ScreenshotTests: SnapshotTestCase {
     @MainActor
     func testSettings() {
         let model = SampleData.model()
-        assertScreenshot(of: SettingsView(model: model), size: CGSize(width: 600, height: 640), named: "settings")
+        let updates = SampleData.updateModel(state: .available(SampleData.release))
+        // Taller than the real window (which scrolls) so the screenshot shows every section.
+        assertScreenshot(of: SettingsView(model: model, height: 1080).environment(updates), size: CGSize(width: 600, height: 1080), named: "settings")
+    }
+
+    @MainActor
+    func testMenuBarPopoverWithAnAvailableUpdate() {
+        let model = SampleData.model(running: ["Pixel_9_API_36"])
+        let updates = SampleData.updateModel(state: .available(SampleData.release))
+        assertScreenshot(of: MenuBarContent(model: model).environment(updates), size: CGSize(width: 340, height: 640), named: "menu-bar-update", schemes: [.light])
+    }
+
+    @MainActor
+    func testMenuBarIconChoices() {
+        let gallery = Grid(horizontalSpacing: 16, verticalSpacing: 16) {
+            GridRow {
+                ForEach(MenuBarIcon.allCases.prefix(5)) { self.iconTile($0) }
+            }
+            GridRow {
+                ForEach(MenuBarIcon.allCases.suffix(5)) { self.iconTile($0) }
+            }
+        }
+        .padding(24)
+        assertScreenshot(of: gallery, size: CGSize(width: 500, height: 230), named: "menu-bar-icons")
+    }
+
+    @MainActor
+    private func iconTile(_ icon: MenuBarIcon) -> some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 14) {
+                Image(nsImage: icon.image(running: false)).renderingMode(.template).resizable().scaledToFit().frame(width: 26, height: 26)
+                Image(nsImage: icon.image(running: true)).renderingMode(.template).resizable().scaledToFit().frame(width: 26, height: 26)
+            }
+            Text(icon.title).font(.caption2).foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: Software Update
+
+    @MainActor
+    private func assertUpdate(
+        _ state: UpdateState,
+        named name: String,
+        installSource: InstallSource = .manual,
+        schemes: [ColorScheme] = [.light, .dark],
+        file: StaticString = #filePath,
+        testName: String = #function,
+        line: UInt = #line
+    ) {
+        assertScreenshot(
+            of: UpdateView(model: SampleData.updateModel(state: state, installSource: installSource)),
+            size: CGSize(width: 540, height: 520),
+            named: name,
+            schemes: schemes,
+            file: file,
+            testName: testName,
+            line: line
+        )
+    }
+
+    @MainActor
+    func testUpdateAvailableShowsInstalledAndNewVersion() {
+        assertUpdate(.available(SampleData.release), named: "update-available")
+    }
+
+    @MainActor
+    func testUpdateUpToDate() {
+        assertUpdate(.upToDate(checkedAt: Date(timeIntervalSinceNow: -120)), named: "update-up-to-date")
+    }
+
+    @MainActor
+    func testUpdateDownloading() {
+        assertUpdate(.downloading(SampleData.release, progress: 0.42), named: "update-downloading", schemes: [.light])
+    }
+
+    @MainActor
+    func testUpdateDownloaded() {
+        assertUpdate(.downloaded(SampleData.release, file: URL(fileURLWithPath: "/tmp/AVD-Studio-0.2.0.dmg"), verified: true), named: "update-downloaded", schemes: [.light])
+    }
+
+    @MainActor
+    func testUpdateForHomebrewInstalls() {
+        assertUpdate(.available(SampleData.release), named: "update-homebrew", installSource: .homebrew, schemes: [.light])
+    }
+
+    @MainActor
+    func testUpdateFailedAndNoReleases() {
+        assertUpdate(.failed(UpdateError.rateLimited.localizedDescription), named: "update-failed", schemes: [.light])
+        assertUpdate(.noReleases(checkedAt: Date(timeIntervalSinceNow: -30)), named: "update-no-releases", schemes: [.light])
     }
 }

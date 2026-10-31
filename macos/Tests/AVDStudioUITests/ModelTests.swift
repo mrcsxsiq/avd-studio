@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Testing
 @testable import AVDStudioUI
@@ -58,5 +59,83 @@ struct ModelTests {
 
     @Test func serviceErrorExposesItsMessage() {
         #expect(ServiceError("boom").localizedDescription == "boom")
+    }
+}
+
+@Suite("Appearance")
+struct AppearanceTests {
+    @Test func offersSystemLightAndDarkInThatOrder() {
+        #expect(AppearanceMode.allCases == [.system, .light, .dark])
+    }
+
+    @Test func mapsToSwiftUIColorSchemes() {
+        #expect(AppearanceMode.system.colorScheme == nil)
+        #expect(AppearanceMode.light.colorScheme == .light)
+        #expect(AppearanceMode.dark.colorScheme == .dark)
+    }
+
+    @Test func mapsToAppKitAppearances() {
+        #expect(AppearanceMode.system.appKitAppearance == nil)
+        #expect(AppearanceMode.light.appKitAppearance?.name == .aqua)
+        #expect(AppearanceMode.dark.appKitAppearance?.name == .darkAqua)
+    }
+
+    @Test func storedRawValuesRoundTripAndUnknownOnesFallBackToSystem() {
+        for mode in AppearanceMode.allCases {
+            #expect(AppearanceMode(rawValue: mode.rawValue) == mode)
+        }
+        #expect(AppearanceMode(rawValue: "sepia") == nil)
+    }
+}
+
+@Suite("Menu bar icons")
+struct MenuBarIconTests {
+    @Test func offersTenChoicesIncludingTheDroid() {
+        #expect(MenuBarIcon.allCases.count == 10)
+        #expect(MenuBarIcon.allCases.contains(.droid))
+        #expect(Set(MenuBarIcon.allCases.map(\.rawValue)).count == 10)
+        #expect(Set(MenuBarIcon.allCases.map(\.title)).count == 10)
+    }
+
+    @Test func everySymbolBackedIconUsesARealSymbol() {
+        for icon in MenuBarIcon.allCases {
+            if let name = icon.symbolName {
+                #expect(NSImage(systemSymbolName: name, accessibilityDescription: nil) != nil, "\(icon) uses a missing symbol \(name)")
+            }
+        }
+        #expect(MenuBarIcon.droid.symbolName == nil)
+    }
+
+    @Test func everyIconIsAnEighteenPointTemplateImage() {
+        for icon in MenuBarIcon.allCases {
+            let image = icon.image(running: false)
+            #expect(image.isTemplate, "\(icon) must be a template so macOS can tint it")
+            #expect(image.size == NSSize(width: 18, height: 18))
+        }
+    }
+
+    @Test func theRunningDotChangesThePixels() throws {
+        for icon in MenuBarIcon.allCases {
+            let idle = try #require(icon.image(running: false).tiffRepresentation)
+            let running = try #require(icon.image(running: true).tiffRepresentation)
+            #expect(idle != running, "\(icon) must look different while an emulator is running")
+        }
+    }
+
+    @Test func iconsActuallyDrawSomething() throws {
+        for icon in MenuBarIcon.allCases {
+            let tiff = try #require(icon.image(running: false).tiffRepresentation)
+            let bitmap = try #require(NSBitmapImageRep(data: tiff))
+            var opaque = 0
+            for x in 0..<bitmap.pixelsWide {
+                for y in 0..<bitmap.pixelsHigh where (bitmap.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.5 { opaque += 1 }
+            }
+            #expect(opaque > 20, "\(icon) rendered blank")
+        }
+    }
+
+    @Test func unknownStoredValuesFallBackToTheDefault() {
+        #expect(MenuBarIcon(rawValue: "unicorn") == nil)
+        #expect(MenuBarIcon(rawValue: "droid") == .droid)
     }
 }

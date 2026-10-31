@@ -33,6 +33,14 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
 - Setup screen when no Android SDK is found, with a folder picker and the Homebrew install command.
 - Settings to choose the SDK folder and the virtual-device folder (for example on an external drive),
   show or hide the menu bar item, and run diagnostics.
+- Software update: Settings and the app menu ("Check for Updates…") show the installed version next to the
+  new one with its release notes, then download the DMG with SHA-256 verification. A native notification
+  announces a new release (once per version), and you can turn automatic checks off in Settings. Copies
+  installed with Homebrew are pointed to `brew upgrade --cask avd-studio` instead.
+- Theme setting: follow the system, or force light or dark.
+- Choose the menu bar icon from 10 options (phone, phone & tablet, tablet, watch, TV, car, play, terminal,
+  bolt and a little droid); a dot on the icon shows that an emulator is running.
+- New app icon.
 - `avdstudio` command-line tool with `list`, `start`, `doctor` and `sdk-path`; `list` and `doctor`
   support `--json`, and `--sdk-path` / `--avd-home` (or `AVDSTUDIO_SDK_PATH` / `AVDSTUDIO_AVD_HOME`)
   override auto-detection.

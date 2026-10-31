@@ -3,6 +3,8 @@ import SwiftUI
 
 public struct RootView: View {
     @Bindable var model: AppModel
+    @Environment(UpdateModel.self) private var updates: UpdateModel?
+    @Environment(\.openWindow) private var openWindow
 
     public init(model: AppModel) {
         self.model = model
@@ -19,6 +21,17 @@ public struct RootView: View {
         }
         .searchable(text: $model.searchText, placement: .toolbar, prompt: "Search devices")
         .toolbar {
+            if let release = updates?.availableRelease {
+                ToolbarItem {
+                    Button {
+                        openWindow(id: "updates")
+                    } label: {
+                        Label("Update to \(release.version.description)", systemImage: "arrow.down.circle.fill")
+                            .symbolRenderingMode(.multicolor)
+                    }
+                    .help("Version \(release.version.description) is available")
+                }
+            }
             ToolbarItem {
                 Button {
                     Task { await model.refresh() }
@@ -47,6 +60,9 @@ public struct RootView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             Task { await model.refresh() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .avdStudioShowUpdates)) { _ in
+            openWindow(id: "updates")
         }
     }
 

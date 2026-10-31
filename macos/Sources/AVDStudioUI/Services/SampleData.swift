@@ -72,6 +72,40 @@ public enum SampleData {
         ]
     )
 
+    /// A newer version than the one the tests and previews pretend to run (0.1.0).
+    public static let release = AppRelease(
+        version: AppVersion(major: 0, minor: 2, patch: 0),
+        title: "AVD Studio 0.2.0",
+        notes: """
+        **Highlights**
+        - Create virtual devices from the app
+        - Install system images without opening Android Studio
+        - Faster start-up when you have many devices
+
+        Fixes: the menu bar item now updates right after an emulator exits.
+        """,
+        pageURL: URL(string: "https://github.com/mrcsxsiq/avd-studio/releases/tag/v0.2.0")!,
+        publishedAt: Date(timeIntervalSince1970: 1_793_000_000),
+        asset: AppRelease.Asset(
+            name: "AVD-Studio-0.2.0.dmg",
+            url: URL(string: "https://github.com/mrcsxsiq/avd-studio/releases/download/v0.2.0/AVD-Studio-0.2.0.dmg")!,
+            size: 48_200_000,
+            checksumURL: URL(string: "https://github.com/mrcsxsiq/avd-studio/releases/download/v0.2.0/AVD-Studio-0.2.0.dmg.sha256")!
+        )
+    )
+
+    /// An `UpdateModel` frozen in `state`, for previews and screenshot tests. It never touches the network.
+    @MainActor
+    public static func updateModel(state: UpdateState, installSource: InstallSource = .manual) -> UpdateModel {
+        UpdateModel(
+            currentVersion: AppVersion(major: 0, minor: 1, patch: 0),
+            source: PreviewReleaseSource(),
+            installSource: installSource,
+            state: state,
+            defaults: UserDefaults(suiteName: "avdstudio.sample.updates.\(UUID())")!
+        )
+    }
+
     public static let diagnostics: [DoctorItem] = [
         .init(id: "sdk", title: "Android SDK", status: .pass, detail: "/Users/you/Library/Android/sdk (Android Studio default)"),
         .init(id: "emulator", title: "emulator", status: .pass, detail: "/Users/you/Library/Android/sdk/emulator/emulator"),
@@ -109,4 +143,10 @@ public struct PreviewDeviceService: DeviceService {
     public func diagnose(locations: Locations) async -> [DoctorItem] { SampleData.diagnostics }
     public func launch(_ device: VirtualDevice, options: LaunchOptions, locations: Locations) async throws {}
     public func stop(_ device: VirtualDevice) async throws {}
+}
+
+/// Always reports "nothing published"; backs previews.
+public struct PreviewReleaseSource: ReleaseSource {
+    public init() {}
+    public func latestRelease() async throws -> AppRelease? { nil }
 }

@@ -6,6 +6,7 @@ public struct MenuBarContent: View {
     @Bindable var model: AppModel
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openSettings) private var openSettings
+    @Environment(UpdateModel.self) private var updates: UpdateModel?
 
     public init(model: AppModel) {
         self.model = model
@@ -14,6 +15,7 @@ public struct MenuBarContent: View {
     public var body: some View {
         VStack(spacing: 0) {
             header
+            if let release = updates?.availableRelease { updateBanner(release) }
             Divider()
             content
             Divider()
@@ -84,6 +86,25 @@ public struct MenuBarContent: View {
         }
     }
 
+    private func updateBanner(_ release: AppRelease) -> some View {
+        Button {
+            NSApp.activate(ignoringOtherApps: true)
+            openWindow(id: "updates")
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.down.circle.fill").foregroundStyle(.white)
+                Text("Version \(release.version.description) is available").font(.callout.weight(.medium)).foregroundStyle(.white)
+                Spacer()
+                Text("Update").font(.callout.weight(.semibold)).foregroundStyle(.white.opacity(0.9))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(LinearGradient(colors: [.blue, .purple], startPoint: .leading, endPoint: .trailing))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Version \(release.version.description) is available. Open update window.")
+    }
+
     private var footer: some View {
         HStack(spacing: 4) {
             Button("Open AVD Studio") {
@@ -116,7 +137,7 @@ public struct MenuBarContent: View {
         guard model.hasLoaded else { return "Loading…" }
         let total = model.devices.count
         let noun = total == 1 ? "device" : "devices"
-        return model.runningCount > 0 ? "\(model.runningCount) running · \(total) \(noun)" : "\(total) \(noun)"
+        return model.runningCount > 0 ? "\(model.runningCount) running · \(total) \(noun)" : "\(total) \(noun) · click one to start"
     }
 }
 

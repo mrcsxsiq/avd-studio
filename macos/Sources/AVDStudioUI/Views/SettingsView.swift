@@ -3,20 +3,46 @@ import SwiftUI
 public enum AppSettings {
     /// `@AppStorage` key for the "show in menu bar" toggle.
     public static let showMenuBarItemKey = "showMenuBarItem"
+    /// `@AppStorage` key for the theme (`AppearanceMode.rawValue`).
+    public static let appearanceKey = "appearance"
+    /// `@AppStorage` key for the menu bar icon (`MenuBarIcon.rawValue`).
+    public static let menuBarIconKey = "menuBarIcon"
 }
 
 public struct SettingsView: View {
     @Bindable var model: AppModel
     @AppStorage(AppSettings.showMenuBarItemKey) private var showMenuBarItem = true
+    @AppStorage(AppSettings.appearanceKey) private var appearance = AppearanceMode.system
+    @AppStorage(AppSettings.menuBarIconKey) private var menuBarIcon = MenuBarIcon.phone
+    @Environment(UpdateModel.self) private var updates: UpdateModel?
+    @Environment(\.openWindow) private var openWindow
     @State private var sdkText = ""
     @State private var avdText = ""
 
+    private let height: CGFloat
+
     public init(model: AppModel) {
+        self.init(model: model, height: 720)
+    }
+
+    /// `height` is the window height; the form scrolls when it does not all fit (small displays).
+    init(model: AppModel, height: CGFloat) {
         self.model = model
+        self.height = height
     }
 
     public var body: some View {
         Form {
+            Section("Appearance") {
+                Picker("Theme", selection: $appearance) {
+                    ForEach(AppearanceMode.allCases) { mode in
+                        Label(mode.title, systemImage: mode.symbolName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: appearance) { _, mode in mode.apply() }
+            }
+
             Section {
                 pathRow(title: "Folder", text: $sdkText, placeholder: "Detected automatically") {
                     choose(message: "Choose your Android SDK folder", current: model.toolchain?.sdkPath) { sdkText = $0 }
@@ -50,8 +76,17 @@ public struct SettingsView: View {
                 Text("Pick a folder on an external drive to keep large emulators off your Mac. Existing devices are not moved.")
             }
 
-            Section("Menu bar") {
+            if let updates { updatesSection(updates) }
+
+            Section {
                 Toggle("Show AVD Studio in the menu bar", isOn: $showMenuBarItem)
+                MenuBarIconPicker(selection: $menuBarIcon)
+                    .disabled(!showMenuBarItem)
+                    .opacity(showMenuBarItem ? 1 : 0.5)
+            } header: {
+                Text("Menu bar")
+            } footer: {
+                Text("Click a device in the menu bar list to start it right away. A dot on the icon means an emulator is running.")
             }
 
             Section {
@@ -62,9 +97,32 @@ public struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 600, height: 640)
+        .frame(width: 600, height: height)
         .onAppear { syncFields() }
         .task { await model.runDiagnostics() }
+    }
+
+    private func updatesSection(_ updates: UpdateModel) -> some View {
+        Section {
+            LabeledContent("Version", value: updates.currentVersion.description)
+            if let release = updates.availableRelease {
+                LabeledContent("Available") {
+                    Text(release.version.description).foregroundStyle(Color.accentColor).fontWeight(.semibold)
+                }
+            }
+            Toggle(
+                "Check for updates automatically",
+                isOn: Binding(get: { updates.automaticChecks }, set: { updates.automaticChecks = $0 })
+            )
+            Button(updates.hasUpdate ? "View Update…" : "Check for Updates…") {
+                openWindow(id: "updates")
+                if !updates.hasUpdate { Task { await updates.checkForUpdates() } }
+            }
+        } header: {
+            Text("Updates")
+        } footer: {
+            Text("AVD Studio looks for new versions when it opens and every few hours, and notifies you when one is released.")
+        }
     }
 
     private func pathRow(
@@ -142,5 +200,43 @@ struct DiagnosticRow: View {
         case .warning: .orange
         case .fail: .red
         }
+    }
+}
+
+/// Two rows of icons; the chosen one is outlined. Icons render as templates, so they follow the text colour.
+struct MenuBarIconPicker: View {
+    @Binding var selection: MenuBarIcon
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 5)
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 8) {
+            ForEach(MenuBarIcon.allCases) { icon in
+                Button {
+                    selection = icon
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(nsImage: icon.image(running: false))
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 24, height: 24)
+                        Text(icon.title).font(.caption2).lineLimit(1).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(selection == icon ? Color.accentColor.opacity(0.16) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(selection == icon ? Color.accentColor : .clear, lineWidth: 2)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(icon.title)
+                .accessibilityLabel("\(icon.title) icon")
+                .accessibilityAddTraits(selection == icon ? .isSelected : [])
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
