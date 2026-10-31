@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import AVDStudioUI
 
 @Suite("AppVersion")
@@ -26,8 +27,10 @@ struct AppVersionTests {
 
     @Test func followsTheSemVerPrecedenceExample() {
         // https://semver.org/#spec-item-11
-        let ordered = ["1.0.0-alpha", "1.0.0-alpha.1", "1.0.0-alpha.beta", "1.0.0-beta", "1.0.0-beta.2", "1.0.0-beta.11", "1.0.0-rc.1", "1.0.0"]
-            .map { AppVersion($0)! }
+        let ordered = [
+            "1.0.0-alpha", "1.0.0-alpha.1", "1.0.0-alpha.beta", "1.0.0-beta", "1.0.0-beta.2", "1.0.0-beta.11", "1.0.0-rc.1", "1.0.0",
+        ]
+        .map { AppVersion($0)! }
         for (earlier, later) in zip(ordered, ordered.dropFirst()) {
             #expect(earlier < later, "\(earlier) should be older than \(later)")
             #expect(!(later < earlier))
@@ -44,23 +47,24 @@ struct AppVersionTests {
 @Suite("GitHubReleaseSource")
 struct GitHubReleaseSourceTests {
     private let payload = """
-    {
-      "tag_name": "v0.2.0",
-      "name": "AVD Studio 0.2.0",
-      "body": "## What's new\\n- Faster",
-      "html_url": "https://github.com/mrcsxsiq/avd-studio/releases/tag/v0.2.0",
-      "draft": false,
-      "prerelease": false,
-      "published_at": "2026-11-20T12:30:00Z",
-      "assets": [
-        { "name": "avdstudio-0.2.0-macos-arm64.tar.gz", "size": 1000, "browser_download_url": "https://github.com/x/releases/download/v0.2.0/avdstudio-0.2.0-macos-arm64.tar.gz" },
-        { "name": "AVD-Studio-0.2.0.dmg", "size": 48200000, "browser_download_url": "https://github.com/x/releases/download/v0.2.0/AVD-Studio-0.2.0.dmg" },
-        { "name": "AVD-Studio-0.2.0.dmg.sha256", "size": 90, "browser_download_url": "https://github.com/x/releases/download/v0.2.0/AVD-Studio-0.2.0.dmg.sha256" }
-      ]
-    }
-    """
+        {
+          "tag_name": "v0.2.0",
+          "name": "AVD Studio 0.2.0",
+          "body": "## What's new\\n- Faster",
+          "html_url": "https://github.com/mrcsxsiq/avd-studio/releases/tag/v0.2.0",
+          "draft": false,
+          "prerelease": false,
+          "published_at": "2026-11-20T12:30:00Z",
+          "assets": [
+            { "name": "avdstudio-0.2.0-macos-arm64.tar.gz", "size": 1000, "browser_download_url": "https://github.com/x/releases/download/v0.2.0/avdstudio-0.2.0-macos-arm64.tar.gz" },
+            { "name": "AVD-Studio-0.2.0.dmg", "size": 48200000, "browser_download_url": "https://github.com/x/releases/download/v0.2.0/AVD-Studio-0.2.0.dmg" },
+            { "name": "AVD-Studio-0.2.0.dmg.sha256", "size": 90, "browser_download_url": "https://github.com/x/releases/download/v0.2.0/AVD-Studio-0.2.0.dmg.sha256" }
+          ]
+        }
+        """
 
-    private func source(status: Int, body: String = "", client: StubHTTPClient = StubHTTPClient()) -> (GitHubReleaseSource, StubHTTPClient) {
+    private func source(status: Int, body: String = "", client: StubHTTPClient = StubHTTPClient()) -> (GitHubReleaseSource, StubHTTPClient)
+    {
         client.respond(to: URL(string: "https://api.github.com/repos/mrcsxsiq/avd-studio/releases/latest")!, status: status, body: body)
         return (GitHubReleaseSource(owner: "mrcsxsiq", repository: "avd-studio", client: client), client)
     }
@@ -146,7 +150,9 @@ struct InstallSourceTests {
     }
 
     @Test func honoursACustomHomebrewPrefix() {
-        #expect(InstallSource.detect(environment: ["HOMEBREW_PREFIX": "/opt/brew"], exists: { $0 == "/opt/brew/Caskroom/avd-studio" }) == .homebrew)
+        #expect(
+            InstallSource.detect(environment: ["HOMEBREW_PREFIX": "/opt/brew"], exists: { $0 == "/opt/brew/Caskroom/avd-studio" })
+                == .homebrew)
     }
 
     @Test func otherwiseTheAppWasInstalledByHand() {

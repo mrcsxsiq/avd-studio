@@ -154,7 +154,9 @@ struct MenuBarRow: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(width: 32, height: 32)
-                    .background(DevicePalette(kind: device.kind, seed: device.id).gradient, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(
+                        DevicePalette(kind: device.kind, seed: device.id).gradient,
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 VStack(alignment: .leading, spacing: 1) {
                     Text(device.displayName).font(.body).lineLimit(1)
                     Text(subtitle).font(.caption).foregroundStyle(subtitleColor).lineLimit(1)

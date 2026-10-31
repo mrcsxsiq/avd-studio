@@ -77,13 +77,13 @@ public enum SampleData {
         version: AppVersion(major: 0, minor: 2, patch: 0),
         title: "AVD Studio 0.2.0",
         notes: """
-        **Highlights**
-        - Create virtual devices from the app
-        - Install system images without opening Android Studio
-        - Faster start-up when you have many devices
+            **Highlights**
+            - Create virtual devices from the app
+            - Install system images without opening Android Studio
+            - Faster start-up when you have many devices
 
-        Fixes: the menu bar item now updates right after an emulator exits.
-        """,
+            Fixes: the menu bar item now updates right after an emulator exits.
+            """,
         pageURL: URL(string: "https://github.com/mrcsxsiq/avd-studio/releases/tag/v0.2.0")!,
         publishedAt: Date(timeIntervalSince1970: 1_793_000_000),
         asset: AppRelease.Asset(
@@ -109,7 +109,9 @@ public enum SampleData {
     public static let diagnostics: [DoctorItem] = [
         .init(id: "sdk", title: "Android SDK", status: .pass, detail: "/Users/you/Library/Android/sdk (Android Studio default)"),
         .init(id: "emulator", title: "emulator", status: .pass, detail: "/Users/you/Library/Android/sdk/emulator/emulator"),
-        .init(id: "java", title: "Java runtime", status: .warning, detail: "No JDK found. sdkmanager and avdmanager need one.", hint: "Install one with `brew install --cask temurin`."),
+        .init(
+            id: "java", title: "Java runtime", status: .warning, detail: "No JDK found. sdkmanager and avdmanager need one.",
+            hint: "Install one with `brew install --cask temurin`."),
         .init(id: "avd-home", title: "Virtual device folder", status: .pass, detail: "/Users/you/.android/avd — 9 device(s)"),
     ]
 
@@ -121,12 +123,13 @@ public enum SampleData {
         toolchain: ToolchainSummary = SampleData.readyToolchain
     ) -> AppModel {
         let model = AppModel(service: PreviewDeviceService(), defaults: UserDefaults(suiteName: "avdstudio.sample.\(UUID())")!)
-        model.load(DeviceSnapshot(
-            devices: devices,
-            running: running.map { RunningDevice(name: $0, processID: 100) },
-            toolchain: toolchain,
-            avdHome: "/Users/you/.android/avd"
-        ))
+        model.load(
+            DeviceSnapshot(
+                devices: devices,
+                running: running.map { RunningDevice(name: $0, processID: 100) },
+                toolchain: toolchain,
+                avdHome: "/Users/you/.android/avd"
+            ))
         return model
     }
 }

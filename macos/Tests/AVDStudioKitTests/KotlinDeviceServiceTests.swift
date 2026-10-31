@@ -2,6 +2,7 @@ import AVDStudioCore
 import AVDStudioUI
 import Foundation
 import Testing
+
 @testable import AVDStudioKit
 
 /// Exercises the real Kotlin core through the bridge, against a throw-away home folder.
@@ -16,10 +17,11 @@ struct KotlinDeviceServiceTests {
 
     private func makeService() -> KotlinDeviceService {
         // HOMEBREW_PREFIX is redirected so the real /opt/homebrew SDK on a developer's Mac can never leak into a test.
-        KotlinDeviceService(environment: StaticEnvironment(
-            variables: ["PATH": "/usr/bin:/bin", "HOMEBREW_PREFIX": home.appendingPathComponent("homebrew").path],
-            homeDirectory: home.path
-        ))
+        KotlinDeviceService(
+            environment: StaticEnvironment(
+                variables: ["PATH": "/usr/bin:/bin", "HOMEBREW_PREFIX": home.appendingPathComponent("homebrew").path],
+                homeDirectory: home.path
+            ))
     }
 
     private func write(_ relativePath: String, _ text: String = "") throws {
@@ -29,7 +31,9 @@ struct KotlinDeviceServiceTests {
     }
 
     private func installSDK(at relative: String) throws {
-        for tool in ["cmdline-tools/latest/bin/sdkmanager", "cmdline-tools/latest/bin/avdmanager", "emulator/emulator", "platform-tools/adb"] {
+        for tool in [
+            "cmdline-tools/latest/bin/sdkmanager", "cmdline-tools/latest/bin/avdmanager", "emulator/emulator", "platform-tools/adb",
+        ] {
             try write("\(relative)/\(tool)")
         }
     }
@@ -81,7 +85,8 @@ struct KotlinDeviceServiceTests {
         try write("custom-avd/Custom.ini", "path=\(home.path)/custom-avd/Custom.avd\ntarget=android-35\n")
         try write("custom-avd/Custom.avd/config.ini", "hw.device.name=pixel_9\n")
 
-        let locations = Locations(sdkPath: home.appendingPathComponent("elsewhere/sdk").path, avdHome: home.appendingPathComponent("custom-avd").path)
+        let locations = Locations(
+            sdkPath: home.appendingPathComponent("elsewhere/sdk").path, avdHome: home.appendingPathComponent("custom-avd").path)
         let snapshot = await makeService().snapshot(locations: locations)
 
         #expect(snapshot.devices.map(\.id) == ["Custom"])

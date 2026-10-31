@@ -1,5 +1,4 @@
-#!/usr/bin/env swift
-// Renders the app icon into macos/App/Assets.xcassets/AppIcon.appiconset.
+#!/usr/bin/env swift  // Renders the app icon into macos/App/Assets.xcassets/AppIcon.appiconset.
 //
 //   swift scripts/generate-icon.swift                      # writes the whole icon set
 //   swift scripts/generate-icon.swift --preview out.png    # writes one 1024px preview
@@ -80,7 +79,11 @@ func drawIcon(simplified: Bool) {
             color(0xFFFFFF, 0.28).setFill()
             for column in 0..<4 {
                 for row in 0..<2 {
-                    rounded(NSRect(x: tabletScreen.minX + 150 + CGFloat(column) * 54, y: tabletScreen.minY + 48 + CGFloat(row) * 54, width: 38, height: 38), 11).fill()
+                    rounded(
+                        NSRect(
+                            x: tabletScreen.minX + 150 + CGFloat(column) * 54, y: tabletScreen.minY + 48 + CGFloat(row) * 54, width: 38,
+                            height: 38), 11
+                    ).fill()
                 }
             }
         }

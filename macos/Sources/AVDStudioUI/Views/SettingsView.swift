@@ -54,8 +54,10 @@ public struct SettingsView: View {
                             Text(toolchain.sourceDescription).font(.caption).foregroundStyle(.secondary)
                         }
                     }
-                    Label(toolchain.summary, systemImage: toolchain.isConfigured ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                        .foregroundStyle(toolchain.isConfigured ? .green : .orange)
+                    Label(
+                        toolchain.summary, systemImage: toolchain.isConfigured ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
+                    )
+                    .foregroundStyle(toolchain.isConfigured ? .green : .orange)
                 }
             } header: {
                 Text("Android SDK")
@@ -224,7 +226,10 @@ struct MenuBarIconPicker: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .background(selection == icon ? Color.accentColor.opacity(0.16) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .background(
+                        selection == icon ? Color.accentColor.opacity(0.16) : Color.primary.opacity(0.04),
+                        in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    )
                     .overlay {
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .strokeBorder(selection == icon ? Color.accentColor : .clear, lineWidth: 2)

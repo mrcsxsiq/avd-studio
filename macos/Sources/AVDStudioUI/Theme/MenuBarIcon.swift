@@ -69,7 +69,9 @@ public enum MenuBarIcon: String, CaseIterable, Identifiable, Sendable {
 
     private static func drawSymbol(named name: String, in rect: NSRect) {
         let configuration = NSImage.SymbolConfiguration(pointSize: 14, weight: .regular)
-        guard let symbol = NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(configuration) else { return }
+        guard let symbol = NSImage(systemSymbolName: name, accessibilityDescription: nil)?.withSymbolConfiguration(configuration) else {
+            return
+        }
         let size = symbol.size
         let target = NSRect(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2, width: size.width, height: size.height)
         symbol.draw(in: target)

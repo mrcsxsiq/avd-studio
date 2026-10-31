@@ -1,5 +1,6 @@
 import SwiftUI
 import XCTest
+
 @testable import AVDStudioUI
 
 final class ScreenshotTests: SnapshotTestCase {
@@ -93,7 +94,8 @@ final class ScreenshotTests: SnapshotTestCase {
     @MainActor
     func testMenuBarPopoverWhenTheSdkIsMissing() {
         let model = SampleData.model(devices: [], toolchain: SampleData.missingToolchain)
-        assertScreenshot(of: MenuBarContent(model: model), size: CGSize(width: 340, height: 300), named: "menu-bar-setup", schemes: [.light])
+        assertScreenshot(
+            of: MenuBarContent(model: model), size: CGSize(width: 340, height: 300), named: "menu-bar-setup", schemes: [.light])
     }
 
     @MainActor
@@ -101,14 +103,17 @@ final class ScreenshotTests: SnapshotTestCase {
         let model = SampleData.model()
         let updates = SampleData.updateModel(state: .available(SampleData.release))
         // Taller than the real window (which scrolls) so the screenshot shows every section.
-        assertScreenshot(of: SettingsView(model: model, height: 1080).environment(updates), size: CGSize(width: 600, height: 1080), named: "settings")
+        assertScreenshot(
+            of: SettingsView(model: model, height: 1080).environment(updates), size: CGSize(width: 600, height: 1080), named: "settings")
     }
 
     @MainActor
     func testMenuBarPopoverWithAnAvailableUpdate() {
         let model = SampleData.model(running: ["Pixel_9_API_36"])
         let updates = SampleData.updateModel(state: .available(SampleData.release))
-        assertScreenshot(of: MenuBarContent(model: model).environment(updates), size: CGSize(width: 340, height: 640), named: "menu-bar-update", schemes: [.light])
+        assertScreenshot(
+            of: MenuBarContent(model: model).environment(updates), size: CGSize(width: 340, height: 640), named: "menu-bar-update",
+            schemes: [.light])
     }
 
     @MainActor
@@ -176,7 +181,9 @@ final class ScreenshotTests: SnapshotTestCase {
 
     @MainActor
     func testUpdateDownloaded() {
-        assertUpdate(.downloaded(SampleData.release, file: URL(fileURLWithPath: "/tmp/AVD-Studio-0.2.0.dmg"), verified: true), named: "update-downloaded", schemes: [.light])
+        assertUpdate(
+            .downloaded(SampleData.release, file: URL(fileURLWithPath: "/tmp/AVD-Studio-0.2.0.dmg"), verified: true),
+            named: "update-downloaded", schemes: [.light])
     }
 
     @MainActor

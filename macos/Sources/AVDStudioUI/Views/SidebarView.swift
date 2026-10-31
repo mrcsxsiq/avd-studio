@@ -58,5 +58,7 @@ struct SDKStatusFooter: View {
     private var isReady: Bool { toolchain?.isConfigured == true }
     private var statusSymbol: String { isReady ? "checkmark.seal.fill" : "exclamationmark.triangle.fill" }
     private var statusColor: Color { isReady ? .green : .orange }
-    private var statusTitle: String { toolchain == nil ? "Checking Android SDK…" : isReady ? "Android SDK ready" : "Android SDK setup needed" }
+    private var statusTitle: String {
+        toolchain == nil ? "Checking Android SDK…" : isReady ? "Android SDK ready" : "Android SDK setup needed"
+    }
 }

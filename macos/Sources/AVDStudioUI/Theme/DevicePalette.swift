@@ -8,7 +8,7 @@ public struct DevicePalette: Equatable, Sendable {
 
     public init(kind: DeviceKind, seed: String) {
         let hash = DevicePalette.fnv1a(seed)
-        let offset = (Double(hash % 1000) / 1000 - 0.5) * 0.10 // -0.05 ... +0.05
+        let offset = (Double(hash % 1000) / 1000 - 0.5) * 0.10  // -0.05 ... +0.05
         var hue = kind.hue + offset
         hue -= hue.rounded(.down)
         self.hue = hue

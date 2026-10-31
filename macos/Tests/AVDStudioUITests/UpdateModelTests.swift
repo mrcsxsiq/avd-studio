@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import AVDStudioUI
 
 @Suite("UpdateModel")
@@ -40,7 +41,8 @@ struct UpdateModelTests {
             downloadsDirectory: downloads,
             now: { at }
         )
-        return Harness(model: model, source: source, client: client, notifier: notifier, opener: opener, defaults: defaults, downloads: downloads)
+        return Harness(
+            model: model, source: source, client: client, notifier: notifier, opener: opener, defaults: defaults, downloads: downloads)
     }
 
     // MARK: Checking

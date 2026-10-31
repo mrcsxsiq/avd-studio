@@ -10,7 +10,7 @@ let package = Package(
         .library(name: "AVDStudioKit", targets: ["AVDStudioKit"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.19.0"),
+        .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.19.0")
     ],
     targets: [
         .binaryTarget(name: "AVDStudioCore", path: "Frameworks/AVDStudioCore.xcframework"),

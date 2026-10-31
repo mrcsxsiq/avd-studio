@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Testing
+
 @testable import AVDStudioUI
 
 @Suite("Models and theme")

@@ -37,7 +37,7 @@ public struct GitHubReleaseSource: ReleaseSource {
 
         switch response.statusCode {
         case 200: return try Self.parse(data)
-        case 404: return nil // no release has been published (or the repository is not public yet)
+        case 404: return nil  // no release has been published (or the repository is not public yet)
         case 403, 429: throw UpdateError.rateLimited
         default: throw UpdateError.badResponse(response.statusCode)
         }
@@ -48,7 +48,7 @@ public struct GitHubReleaseSource: ReleaseSource {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         decoder.dateDecodingStrategy = .iso8601
         guard let payload = try? decoder.decode(Payload.self, from: data),
-              let version = AppVersion(payload.tagName)
+            let version = AppVersion(payload.tagName)
         else { throw UpdateError.unreadable }
         guard !payload.draft, !payload.prerelease else { return nil }
 

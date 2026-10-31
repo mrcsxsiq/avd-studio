@@ -1,4 +1,5 @@
 import Foundation
+
 @testable import AVDStudioUI
 
 /// Returns whatever the test sets, and counts how often it was asked.

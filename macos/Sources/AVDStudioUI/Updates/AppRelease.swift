@@ -24,7 +24,8 @@ public struct AppRelease: Equatable, Sendable {
     public let publishedAt: Date?
     public let asset: Asset?
 
-    public init(version: AppVersion, title: String? = nil, notes: String = "", pageURL: URL, publishedAt: Date? = nil, asset: Asset? = nil) {
+    public init(version: AppVersion, title: String? = nil, notes: String = "", pageURL: URL, publishedAt: Date? = nil, asset: Asset? = nil)
+    {
         self.version = version
         self.title = title ?? "Version \(version)"
         self.notes = notes

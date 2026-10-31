@@ -39,7 +39,8 @@ struct DeviceGridView: View {
             ContentUnavailableView(
                 "No Virtual Devices",
                 systemImage: "iphone.slash",
-                description: Text("No devices were found in \(model.avdHome).\nChoose another folder in Settings, or create a device in Android Studio.")
+                description: Text(
+                    "No devices were found in \(model.avdHome).\nChoose another folder in Settings, or create a device in Android Studio.")
             )
         } else {
             ContentUnavailableView(

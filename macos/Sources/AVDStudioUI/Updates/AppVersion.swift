@@ -61,8 +61,8 @@ public struct AppVersion: Hashable, Sendable, Comparable, CustomStringConvertibl
     private static func comparePrerelease(_ lhs: [String], _ rhs: [String]) -> Int {
         for (left, right) in zip(lhs, rhs) where left != right {
             switch (number(Substring(left)), number(Substring(right))) {
-            case let (l?, r?): return l < r ? -1 : 1
-            case (.some, nil): return -1 // numeric identifiers sort before alphanumeric ones
+            case (let l?, let r?): return l < r ? -1 : 1
+            case (.some, nil): return -1  // numeric identifiers sort before alphanumeric ones
             case (nil, .some): return 1
             case (nil, nil): return left < right ? -1 : 1
             }

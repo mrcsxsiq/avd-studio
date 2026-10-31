@@ -1,4 +1,5 @@
 import Foundation
+
 @testable import AVDStudioUI
 
 /// A controllable `DeviceService` that records what the model asks of it.

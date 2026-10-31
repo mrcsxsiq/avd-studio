@@ -59,14 +59,14 @@ public enum DeviceKind: String, CaseIterable, Identifiable, Hashable, Sendable {
     /// Base hue (0...1) of the kind's colour family.
     var hue: Double {
         switch self {
-        case .phone: 0.58 // blue
-        case .foldable: 0.75 // purple
-        case .tablet: 0.47 // teal
-        case .wearOS: 0.07 // orange
-        case .desktop: 0.66 // indigo
-        case .tv: 0.92 // pink
-        case .automotive: 0.99 // red
-        case .xr: 0.52 // cyan
+        case .phone: 0.58  // blue
+        case .foldable: 0.75  // purple
+        case .tablet: 0.47  // teal
+        case .wearOS: 0.07  // orange
+        case .desktop: 0.66  // indigo
+        case .tv: 0.92  // pink
+        case .automotive: 0.99  // red
+        case .xr: 0.52  // cyan
         case .unknown: 0.0
         }
     }

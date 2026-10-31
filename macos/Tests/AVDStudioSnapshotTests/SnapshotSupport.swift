@@ -28,7 +28,8 @@ func assertScreenshot(
     line: UInt = #line
 ) {
     for scheme in schemes {
-        let content = view
+        let content =
+            view
             .frame(width: size.width, height: size.height, alignment: .topLeading)
             .background(Color(nsColor: .windowBackgroundColor))
             .environment(\.colorScheme, scheme)

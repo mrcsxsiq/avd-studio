@@ -21,11 +21,13 @@ struct SetupView: View {
 
                 VStack(spacing: 6) {
                     Text("Android SDK not found").font(.largeTitle.weight(.bold))
-                    Text("AVD Studio manages emulators with Google's command-line tools. Point it to an SDK you already have, or install the tools.")
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: 520)
+                    Text(
+                        "AVD Studio manages emulators with Google's command-line tools. Point it to an SDK you already have, or install the tools."
+                    )
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 520)
                 }
 
                 if let toolchain = model.toolchain {
