@@ -22,8 +22,9 @@
   </picture>
 </p>
 
-> **Status:** early development. The app, the CLI and the tests work; the first release (DMG + Homebrew) is not published yet.
-> Website: https://avdstudio.dev (goes live with the first release; until then https://mrcsxsiq.github.io/avd-studio/).
+> **Status:** early software. [0.1.0 is out](https://github.com/mrcsxsiq/avd-studio/releases/latest): a DMG, the `avdstudio` CLI and a Homebrew tap.
+> The first builds are not notarized yet, so macOS may ask you to right-click the app and choose **Open** once.
+> Website: https://mrcsxsiq.github.io/avd-studio/ (and https://avdstudio.dev once the domain is connected).
 
 ## What it does
 
@@ -60,8 +61,6 @@ AVD Studio never bundles the Android SDK. It runs the tools that are on your Mac
 
 ## Install
 
-Available with the first release:
-
 | Way | How |
 | --- | --- |
 | DMG | Download `AVD-Studio-<version>.dmg` from [Releases](https://github.com/mrcsxsiq/avd-studio/releases), open it and drag the app to Applications. |
@@ -88,7 +87,7 @@ brew trust --formula mrcsxsiq/avd-studio/avdstudio
 Update later with `brew upgrade --cask avd-studio` (the app can also tell you when a new version is out).
 `brew untrust` takes trust back.
 
-Until the first release, [build from source](#build-from-source).
+Prefer to build it yourself? See [Build from source](#build-from-source).
 
 ## First run
 

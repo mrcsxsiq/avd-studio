@@ -170,17 +170,14 @@ visit (cached for 10 minutes in `sessionStorage`):
 The last row is deliberate: when GitHub refuses to answer we know nothing, so the page does not claim that no
 release exists. The script never throws and every state leaves a working link.
 
-## After the first release
+## After a release
 
-Revisit these, which are written for "before the first release":
-
-- the hero note and the "Can I download it today?" FAQ answer (`index.html`);
-- the "With the first release" badges for Homebrew and the command-line tool in the install section, once the tap
-  and formula are live (the DMG badge flips to "Available now" by itself when the API returns a `.dmg`);
-- the build-from-source card, which points to the repository README for build steps.
+The install badges, the download FAQ answer and the "Can I download it today?" wording describe the published
+state. They were updated for 0.1.0. Revisit them when something changes (a notarized build, a new channel). The
+DMG badge and the download button read the GitHub API and follow new releases by themselves.
 
 ## Content rules
 
-Only state what the product does today. The roadmap items (creating virtual devices, installing system images,
-installing the Android SDK) stay under "Coming next" until they ship. No download counts, stars, testimonials or
+Only state what the product does today. The remaining roadmap item (downloading any system image from inside
+the app) stays under "Coming next" until it ships. No download counts, stars, testimonials or
 awards. No Android or Apple logos. The trademark notice in the footer must stay.

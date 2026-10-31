@@ -289,7 +289,7 @@ Started Pixel_9 (pid 48213).
           <article class="channel">
             <header>
               <h3>Download the app</h3>
-              <span class="pill" data-dmg-pill>With the first release</span>
+              <span class="pill pill-now" data-dmg-pill>Available now</span>
             </header>
             <p>The app as a DMG on GitHub Releases.</p>
             <a class="btn btn-ghost" href="https://github.com/mrcsxsiq/avd-studio/releases" data-download><span data-label>Open GitHub Releases</span></a>
@@ -298,7 +298,7 @@ Started Pixel_9 (pid 48213).
           <article class="channel">
             <header>
               <h3>Homebrew</h3>
-              <span class="pill">With the first release</span>
+              <span class="pill pill-now">Available now</span>
             </header>
             <p>Install the app as a cask from the project's tap. Update it later with <code>brew upgrade --cask avd-studio</code>.</p>
             <div class="cmd">
@@ -312,7 +312,7 @@ brew install --cask mrcsxsiq/avd-studio/avd-studio</code></pre>
           <article class="channel">
             <header>
               <h3>Command-line tool</h3>
-              <span class="pill">With the first release</span>
+              <span class="pill pill-now">Available now</span>
             </header>
             <p>Install just the <code>avdstudio</code> command (after adding the tap above).</p>
             <div class="cmd">
@@ -361,11 +361,11 @@ brew install --cask mrcsxsiq/avd-studio/avd-studio</code></pre>
         <div class="faq">
           <details>
             <summary>Can I download it today?</summary>
-            <div><p>Not yet. AVD Studio is in early development and no release has been published. This page checks GitHub for the latest release and shows a download button as soon as there is one. You can also watch the repository to hear about the first release.</p></div>
+            <div><p>Yes. AVD Studio 0.1.0 is out, with the DMG, the command-line tool and a Homebrew tap on the GitHub releases page. It is early software, so expect rough edges. The first builds are not notarized by Apple yet: if macOS refuses to open the app, right-click it and choose Open, once.</p></div>
           </details>
           <details>
             <summary>Does AVD Studio include the Android SDK?</summary>
-            <div><p>No. It uses the Android command-line tools and emulator already on your Mac and never bundles the Android SDK. If it cannot find them, the setup screen lets you choose a folder or copy the Homebrew command, and Diagnostics shows what is missing.</p></div>
+            <div><p>No. It uses the Android command-line tools and emulator already on your Mac and never bundles the Android SDK. If it cannot find them, the setup screen can install them for you through Homebrew (after you accept Google's licence), give you a script for Terminal, or let you choose a folder you already have. Diagnostics shows what is missing.</p></div>
           </details>
           <details>
             <summary>Does it run on Intel Macs?</summary>
