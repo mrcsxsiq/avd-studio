@@ -15,6 +15,8 @@ class AvdRepositoryTest {
     private val sdk = "$HOME/Library/Android/sdk"
     private val repository = AvdRepository(fs)
 
+    private fun ini(vararg lines: String) = lines.joinToString("\n")
+
     private fun createAvd(
         iniName: String,
         folder: String = iniName,
@@ -102,16 +104,22 @@ class AvdRepositoryTest {
         createAvd(
             "Retroid_Pocket_5",
             target = "android-33",
-            config = """
-                hw.device.name = pixel_2
-                tag.id = google_apis_playstore
-                image.sysdir.1 = system-images/android-33/google_apis_playstore/arm64-v8a/
-            """.trimIndent(),
+            config =
+                ini(
+                    "hw.device.name = pixel_2",
+                    "tag.id = google_apis_playstore",
+                    "image.sysdir.1 = system-images/android-33/google_apis_playstore/arm64-v8a/",
+                ),
         )
         createAvd(
             "Television_4K_API_34",
             target = "android-34",
-            config = "hw.device.name=tv_4k\ntag.id=android-tv\nimage.sysdir.1=system-images/android-34/android-tv/arm64-v8a/",
+            config =
+                ini(
+                    "hw.device.name=tv_4k",
+                    "tag.id=android-tv",
+                    "image.sysdir.1=system-images/android-34/android-tv/arm64-v8a/",
+                ),
         )
 
         val byName = repository.list(avdHome, null).associateBy { it.name }
@@ -127,7 +135,12 @@ class AvdRepositoryTest {
         createAvd(
             "Pixel_Tablet_API_23",
             target = "android-23",
-            config = "hw.device.name=Pixel Tablet (Edited)\ntag.id=google_apis\nimage.sysdir.1=system-images/android-23/google_apis/arm64-v8a/",
+            config =
+                ini(
+                    "hw.device.name=Pixel Tablet (Edited)",
+                    "tag.id=google_apis",
+                    "image.sysdir.1=system-images/android-23/google_apis/arm64-v8a/",
+                ),
         )
         fs.createDirectories(sdk.toPath())
 
