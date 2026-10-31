@@ -1,0 +1,42 @@
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+version: 2
+updates:
+  # Kotlin, Okio, Clikt, kotlinx.serialization, ktlint and the Gradle wrapper (gradle/libs.versions.toml).
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build(deps)"
+    labels: [dependencies]
+    groups:
+      # The Kotlin Gradle plugins share one version; they must move together.
+      kotlin:
+        patterns: ["org.jetbrains.kotlin*"]
+      ktlint:
+        patterns: ["com.pinterest.ktlint*", "org.jlleitschuh.gradle*"]
+
+  # swift-snapshot-testing and friends (macos/Package.swift + Package.resolved).
+  - package-ecosystem: swift
+    directory: /macos
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "build(deps)"
+    labels: [dependencies]
+
+  # The versions pinned in .github/workflows.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "ci"
+    labels: [dependencies]
+    groups:
+      actions:
+        patterns: ["*"]

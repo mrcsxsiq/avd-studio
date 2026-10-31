@@ -1,0 +1,93 @@
+name: Release
+
+# Push a tag like v0.2.0 (see docs/RELEASING.md). `scripts/release.sh` prepares VERSION and CHANGELOG.md.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: macos-latest
+    timeout-minutes: 90
+    env:
+      # Secrets are never usable in `if:`, so expose only whether they exist.
+      HAS_SIGNING_CERT: ${{ secrets.MACOS_CERTIFICATE != '' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: The tag must match VERSION
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME does not match VERSION $version" >&2; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Build the Kotlin core and the CLI
+        run: ./gradlew :core:installXCFramework :cli:linkReleaseExecutableMacosArm64 --stacktrace
+
+      - name: Build the app
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: |
+          brew install xcodegen
+          ./scripts/generate-project.sh
+          xcodebuild -project macos/AVDStudio.xcodeproj -scheme AVDStudio -configuration Release \
+            -destination 'platform=macOS,arch=arm64' -derivedDataPath build/xcode build
+
+      - name: Sign the app (only when the signing secrets exist)
+        if: env.HAS_SIGNING_CERT == 'true'
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: ./scripts/sign-and-notarize.sh sign-app "build/xcode/Build/Products/Release/AVD Studio.app"
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          ./scripts/package-dmg.sh "build/xcode/Build/Products/Release/AVD Studio.app" "dist/AVD-Studio-$VERSION.dmg"
+          ./scripts/package-cli.sh "$VERSION" dist
+
+      - name: Notarize the DMG (only when the signing secrets exist)
+        if: env.HAS_SIGNING_CERT == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: ./scripts/sign-and-notarize.sh notarize-dmg "dist/AVD-Studio-$VERSION.dmg"
+
+      - name: Checksums
+        working-directory: dist
+        run: |
+          for file in *.dmg *.tar.gz; do shasum -a 256 "$file" | tee "$file.sha256"; done
+          echo "DMG_SHA=$(cut -d' ' -f1 "AVD-Studio-$VERSION.dmg.sha256")" >> "$GITHUB_ENV"
+          echo "CLI_SHA=$(cut -d' ' -f1 "avdstudio-$VERSION-macos-arm64.tar.gz.sha256")" >> "$GITHUB_ENV"
+
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ./scripts/changelog-section.sh "$VERSION" > release-notes.md
+          [ -s release-notes.md ] || { echo "CHANGELOG.md has no section for $VERSION" >&2; exit 1; }
+          prerelease=""
+          case "$VERSION" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" dist/* --title "AVD Studio $VERSION" --notes-file release-notes.md $prerelease
+
+      - name: Point Homebrew at the new release
+        run: |
+          git fetch origin main
+          git checkout -B main origin/main
+          ./scripts/update-homebrew.sh "$VERSION" "$DMG_SHA" "$CLI_SHA"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/avd-studio.rb Formula/avdstudio.rb
+          git commit -m "chore(homebrew): $VERSION"
+          git push origin main

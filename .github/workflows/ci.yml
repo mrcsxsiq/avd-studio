@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  kotlin:
+    name: Kotlin (core + CLI)
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Lint and test
+        run: ./gradlew ktlintCheck :core:macosArm64Test :cli:macosArm64Test --stacktrace
+      - name: Build the release CLI
+        run: ./gradlew :cli:linkReleaseExecutableMacosArm64 --stacktrace
+      - name: Smoke-test the CLI
+        run: |
+          cli=cli/build/bin/macosArm64/releaseExecutable/avdstudio.kexe
+          "$cli" --version
+          "$cli" --help
+          # doctor exits 1 on a machine without an Android SDK; only a crash (other codes) is a failure.
+          "$cli" doctor --sdk-path "$RUNNER_TEMP/none" --json || [ $? -eq 1 ]
+
+  swift:
+    name: Swift (app, bridge, unit tests)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Lint (swift format)
+        run: |
+          swift format lint --strict --recursive \
+            macos/Sources macos/Tests macos/App macos/Package.swift scripts/generate-icon.swift
+      - name: Build the Kotlin core as an XCFramework
+        run: ./gradlew :core:installXCFramework --stacktrace
+      - name: Unit and bridge tests
+        # Screenshot tests have their own job: their references depend on the macOS version.
+        run: cd macos && swift test --skip AVDStudioSnapshotTests
+      - name: Build the app
+        run: |
+          brew install xcodegen
+          ./scripts/generate-project.sh
+          xcodebuild -project macos/AVDStudio.xcodeproj -scheme AVDStudio -configuration Release \
+            -destination 'platform=macOS,arch=arm64' -derivedDataPath build/xcode build
+
+  screenshots:
+    name: Screenshot tests
+    runs-on: macos-latest
+    timeout-minutes: 60
+    # The reference images are recorded on the maintainer's Mac. Text anti-aliasing differs between macOS
+    # versions, so until the references are recorded on the runner image this job reports but does not block.
+    # See CONTRIBUTING.md ("Screenshot tests").
+    continue-on-error: true
+    env:
+      CI: "true" # never record on CI: a missing or different reference is a failure
+      SNAPSHOT_ARTIFACTS: ${{ github.workspace }}/snapshot-artifacts
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ./gradlew :core:installXCFramework --stacktrace
+      - run: cd macos && swift test --filter AVDStudioSnapshotTests
+      - name: Keep the failing screenshots
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: snapshot-failures
+          path: snapshot-artifacts
+          if-no-files-found: ignore
+
+  workflows:
+    name: Lint workflows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: actionlint
+        run: |
+          docker run --rm -v "$PWD:/repo" --workdir /repo rhysd/actionlint:latest -color
