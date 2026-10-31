@@ -33,3 +33,4 @@ dist/
 .env
 .env.*
 !.env.example
+macos/Frameworks/

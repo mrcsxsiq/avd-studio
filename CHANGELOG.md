@@ -25,6 +25,14 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
   including devices whose `.ini` name differs from the folder name and devices with a missing system image.
 - Device type detection: phone, foldable, tablet, Wear OS, TV, automotive, desktop and XR.
 - Detection of running emulators and the ability to stop them.
+- Native macOS app (SwiftUI): a colourful grid of virtual devices with a gradient card per device, grouped
+  in the sidebar by type (phone, foldable, tablet, Wear OS, TV, automotive, desktop, XR), search, and
+  double-click to start. Per-device actions: start, stop, cold boot, wipe data and start (with
+  confirmation), show in Finder.
+- Menu bar item to start, test and stop emulators without opening the window; it shows how many are running.
+- Setup screen when no Android SDK is found, with a folder picker and the Homebrew install command.
+- Settings to choose the SDK folder and the virtual-device folder (for example on an external drive),
+  show or hide the menu bar item, and run diagnostics.
 - `avdstudio` command-line tool with `list`, `start`, `doctor` and `sdk-path`; `list` and `doctor`
   support `--json`, and `--sdk-path` / `--avd-home` (or `AVDSTUDIO_SDK_PATH` / `AVDSTUDIO_AVD_HOME`)
   override auto-detection.

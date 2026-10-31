@@ -28,11 +28,12 @@ These are used to build, lint and test the project. They are not part of the rel
 | --- | --- | --- | --- |
 | [ktlint](https://github.com/pinterest/ktlint) | 1.8.0 | MIT | Kotlin linting |
 | [ktlint-gradle](https://github.com/JLLeitschuh/ktlint-gradle) | 14.2.0 | MIT | Gradle integration for ktlint |
-| [swift-snapshot-testing](https://github.com/pointfreeco/swift-snapshot-testing) | 1.19+ | MIT | Screenshot tests |
+| [swift-snapshot-testing](https://github.com/pointfreeco/swift-snapshot-testing) | 1.19.7 | MIT | Screenshot tests |
+| [swift-custom-dump](https://github.com/pointfreeco/swift-custom-dump) (through swift-snapshot-testing) | 1.7.3 | MIT | Screenshot tests |
+| [swift-issue-reporting](https://github.com/pointfreeco/swift-issue-reporting) (through swift-snapshot-testing) | 2.1.2 | MIT | Screenshot tests |
+| [swift-syntax](https://github.com/swiftlang/swift-syntax) (through swift-snapshot-testing) | 604.0.0 | Apache-2.0 with Runtime Library Exception | Screenshot tests |
 
-`swift-snapshot-testing` pulls in further Swift packages (for example `swift-custom-dump` and
-`xctest-dynamic-overlay`, both MIT, and `swift-syntax`, Apache-2.0 with the Runtime Library
-Exception). `macos/Package.resolved` lists the exact set.
+`macos/Package.resolved` pins the exact versions; the test-only packages are not linked into the released app.
 
 ## Android tools are not bundled
 

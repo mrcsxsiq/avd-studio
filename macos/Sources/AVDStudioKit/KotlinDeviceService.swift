@@ -1,0 +1,164 @@
+import AVDStudioCore
+import AVDStudioUI
+import Foundation
+
+/// Adapts the Kotlin core to the UI's `DeviceService`. This is the only file that touches Kotlin types
+/// directly; everything is converted to plain Swift values before it leaves.
+///
+/// Kotlin objects are not `Sendable`, so each call hops to a detached task and only returns value types.
+public final class KotlinDeviceService: DeviceService, @unchecked Sendable {
+    private let core: AvdStudioCore
+
+    public init() {
+        self.core = AvdStudioCore(runner: NativeCommandRunner(), environment: SystemEnvironment())
+    }
+
+    /// For tests: lets them point the core at a temporary home folder and environment.
+    public init(environment: any AVDStudioCore.Environment) {
+        self.core = AvdStudioCore(runner: NativeCommandRunner(), environment: environment)
+    }
+
+    public func snapshot(locations: Locations) async -> DeviceSnapshot {
+        await Task.detached { [self] in
+            let toolchain = core.toolchainStatus(sdkPathOverride: locations.sdkPath)
+            let avds = core.listAvds(sdkPathOverride: locations.sdkPath, avdHomeOverride: locations.avdHome)
+            return DeviceSnapshot(
+                devices: avds.map(Self.device(from:)),
+                running: core.runningEmulators().map { RunningDevice(name: $0.avdName, processID: $0.processId) },
+                toolchain: Self.summary(from: toolchain),
+                avdHome: core.avdHome(avdHomeOverride: locations.avdHome)
+            )
+        }.value
+    }
+
+    public func runningDevices() async -> [RunningDevice] {
+        await Task.detached { [self] in
+            core.runningEmulators().map { RunningDevice(name: $0.avdName, processID: $0.processId) }
+        }.value
+    }
+
+    public func diagnose(locations: Locations) async -> [DoctorItem] {
+        await Task.detached { [self] in
+            core.doctor(sdkPathOverride: locations.sdkPath, avdHomeOverride: locations.avdHome).checks.map {
+                DoctorItem(id: $0.id, title: $0.title, status: Self.status(from: $0.status), detail: $0.detail, hint: $0.hint)
+            }
+        }.value
+    }
+
+    public func launch(_ device: VirtualDevice, options: LaunchOptions, locations: Locations) async throws {
+        try await Task.detached { [self] in
+            let kotlinOptions = EmulatorLaunchOptions(coldBoot: options.coldBoot, wipeData: options.wipeData, extraArguments: [])
+            do {
+                _ = try core.launchAvd(
+                    avdName: device.id,
+                    options: kotlinOptions,
+                    sdkPathOverride: locations.sdkPath,
+                    avdHomeOverride: locations.avdHome
+                )
+            } catch {
+                throw ServiceError(Self.message(for: error))
+            }
+        }.value
+    }
+
+    public func stop(_ device: VirtualDevice) async throws {
+        try await Task.detached { [self] in
+            do {
+                _ = try core.stopAvd(avdName: device.id)
+            } catch {
+                throw ServiceError(Self.message(for: error))
+            }
+        }.value
+    }
+
+    // MARK: Mapping
+
+    static func device(from avd: Avd) -> VirtualDevice {
+        VirtualDevice(
+            id: avd.name,
+            displayName: avd.displayName,
+            path: avd.path,
+            kind: kind(from: avd.formFactor),
+            apiLevel: avd.apiLevel?.label,
+            androidVersion: avd.apiLevel?.androidVersion,
+            deviceProfile: avd.deviceProfile,
+            abi: avd.abi,
+            hasPlayStore: avd.hasPlayStore,
+            ramMegabytes: avd.ramMegabytes?.intValue,
+            storage: avd.storage,
+            diskUsageBytes: avd.diskUsageBytes,
+            status: status(from: avd.health)
+        )
+    }
+
+    static func kind(from formFactor: FormFactor) -> DeviceKind {
+        switch formFactor.name {
+        case "PHONE": .phone
+        case "FOLDABLE": .foldable
+        case "TABLET": .tablet
+        case "WEAR_OS": .wearOS
+        case "DESKTOP": .desktop
+        case "TV": .tv
+        case "AUTOMOTIVE": .automotive
+        case "XR": .xr
+        default: .unknown
+        }
+    }
+
+    static func status(from health: AvdHealth) -> VirtualDevice.Status {
+        switch health.name {
+        case "READY": .ready
+        case "MISSING_SYSTEM_IMAGE": .missingSystemImage
+        default: .invalidConfiguration
+        }
+    }
+
+    static func status(from status: CheckStatus) -> DoctorItem.Status {
+        switch status.name {
+        case "PASS": .pass
+        case "WARNING": .warning
+        default: .fail
+        }
+    }
+
+    static func summary(from toolchain: ToolchainStatus) -> ToolchainSummary {
+        ToolchainSummary(
+            sdkPath: toolchain.sdkPath,
+            sourceDescription: describe(toolchain.source),
+            directoryExists: toolchain.sdkDirectoryExists,
+            isConfigured: toolchain.isConfigured,
+            summary: toolchain.summary,
+            tools: toolchain.tools.map { state in
+                ToolchainSummary.Tool(name: state.tool.executableName, path: state.path, state: toolState(from: state.availability))
+            }
+        )
+    }
+
+    static func toolState(from availability: ToolAvailability) -> ToolchainSummary.Tool.State {
+        switch availability.name {
+        case "AVAILABLE": .available
+        case "DEPRECATED": .deprecated
+        default: .missing
+        }
+    }
+
+    static func describe(_ source: SdkSource) -> String {
+        switch source.name {
+        case "EXPLICIT": "chosen by you"
+        case "ANDROID_SDK_ROOT": "from ANDROID_SDK_ROOT"
+        case "ANDROID_HOME": "from ANDROID_HOME"
+        case "ANDROID_STUDIO_DEFAULT": "Android Studio default"
+        case "HOMEBREW": "Homebrew"
+        default: "default location"
+        }
+    }
+
+    /// Kotlin exceptions arrive as `NSError`s whose own description is generic; the real text is on the exception.
+    static func message(for error: Error) -> String {
+        let nsError = error as NSError
+        if let exception = nsError.userInfo["KotlinException"] as? KotlinThrowable, let message = exception.message {
+            return message
+        }
+        return error.localizedDescription
+    }
+}

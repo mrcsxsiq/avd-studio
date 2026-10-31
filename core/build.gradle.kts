@@ -31,3 +31,15 @@ kotlin {
         }
     }
 }
+
+// Copies the XCFramework next to the Swift package (macos/Frameworks, git-ignored) so SwiftPM and
+// Xcode can consume it from a stable path. `-Pavdstudio.xcframework=debug` builds the debug flavour.
+val xcframeworkFlavour = providers.gradleProperty("avdstudio.xcframework").orElse("release")
+tasks.register<Sync>("installXCFramework") {
+    group = "build"
+    description = "Builds the $xcframeworkName XCFramework and installs it into macos/Frameworks."
+    val flavour = xcframeworkFlavour.get()
+    dependsOn("assemble${xcframeworkName}${flavour.replaceFirstChar { it.uppercase() }}XCFramework")
+    from(layout.buildDirectory.dir("XCFrameworks/$flavour/$xcframeworkName.xcframework"))
+    into(rootProject.layout.projectDirectory.dir("macos/Frameworks/$xcframeworkName.xcframework"))
+}
