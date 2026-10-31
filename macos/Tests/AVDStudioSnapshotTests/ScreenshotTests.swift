@@ -85,10 +85,18 @@ final class ScreenshotTests: SnapshotTestCase {
         assertScreenshot(of: SetupView(model: model), size: CGSize(width: 760, height: 760), named: "setup")
     }
 
+    /// The size the status item's window gets: the content's own size, not a frame we pick.
+    @MainActor
+    private func popoverSize(_ model: AppModel, updates: UpdateModel? = nil) -> CGSize {
+        let content = MenuBarContent(model: model)
+        let host = updates.map { NSHostingView(rootView: AnyView(content.environment($0))) } ?? NSHostingView(rootView: AnyView(content))
+        return host.fittingSize
+    }
+
     @MainActor
     func testMenuBarPopover() {
         let model = SampleData.model(running: ["Pixel_9_API_36", "Television_4K"])
-        assertScreenshot(of: MenuBarContent(model: model), size: CGSize(width: 340, height: 600), named: "menu-bar")
+        assertScreenshot(of: MenuBarContent(model: model), size: popoverSize(model), named: "menu-bar")
     }
 
     @MainActor
@@ -112,7 +120,7 @@ final class ScreenshotTests: SnapshotTestCase {
         let model = SampleData.model(running: ["Pixel_9_API_36"])
         let updates = SampleData.updateModel(state: .available(SampleData.release))
         assertScreenshot(
-            of: MenuBarContent(model: model).environment(updates), size: CGSize(width: 340, height: 640), named: "menu-bar-update",
+            of: MenuBarContent(model: model).environment(updates), size: popoverSize(model, updates: updates), named: "menu-bar-update",
             schemes: [.light])
     }
 

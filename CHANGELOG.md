@@ -14,6 +14,17 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
 
 ## [Unreleased]
 
+### Added
+
+- The `avdstudio` command-line tool now ships inside the app (`AVD Studio.app/Contents/Helpers/avdstudio`), so
+  one install gives you both.
+
+### Fixed
+
+- The menu bar popover showed only its header and footer and no devices. The list had no height of its own and
+  the menu bar window is sized from the content's minimum size, so it collapsed. It now has an explicit height
+  (with scrolling past about 420 pt) and a regression test that measures the popover the way the menu bar does.
+
 ## [0.1.0] - 2026-10-31
 
 ### Added

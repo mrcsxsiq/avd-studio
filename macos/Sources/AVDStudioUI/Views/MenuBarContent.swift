@@ -60,8 +60,11 @@ public struct MenuBarContent: View {
             .padding(24)
             .frame(maxWidth: .infinity)
         } else {
+            // MenuBarExtra sizes its window from the content's *minimum* size, and a ScrollView's minimum is zero:
+            // without an explicit height the whole list disappears. Rows and headers have fixed heights, so the
+            // height is exact.
             ScrollView {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 0) {
                     newDeviceRow
                     let running = model.devices.filter { model.runState(of: $0) == .running }
                     if !running.isEmpty { section("Running", devices: running) }
@@ -69,10 +72,24 @@ public struct MenuBarContent: View {
                         section(kind.pluralTitle, devices: model.devices(of: kind).filter { model.runState(of: $0) != .running })
                     }
                 }
-                .padding(8)
+                .padding(PopoverLayout.listPadding)
             }
-            .frame(maxHeight: 400)
+            .frame(height: listHeight)
         }
+    }
+
+    /// Height of the list: every row and section header has a fixed height, capped so the popover fits a laptop.
+    var listHeight: CGFloat {
+        let running = model.devices.contains { model.runState(of: $0) == .running }
+        let kindsWithIdleDevices = model.availableKinds.filter { kind in
+            model.devices(of: kind).contains { model.runState(of: $0) != .running }
+        }
+        let sections = (running ? 1 : 0) + kindsWithIdleDevices.count
+        let rows = 1 + model.devices.count  // "New Device…" plus one per device
+        let content =
+            CGFloat(rows) * PopoverLayout.rowHeight + CGFloat(sections) * PopoverLayout.sectionHeaderHeight
+            + 2 * PopoverLayout.listPadding
+        return min(content, PopoverLayout.maxListHeight)
     }
 
     @ViewBuilder
@@ -82,7 +99,8 @@ public struct MenuBarContent: View {
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 8)
-                .padding(.top, 6)
+                .padding(.bottom, 2)
+                .frame(height: PopoverLayout.sectionHeaderHeight, alignment: .bottomLeading)
             ForEach(devices) { device in
                 MenuBarRow(device: device, runState: model.runState(of: device)) {
                     Task { await model.togglePower(device) }
@@ -125,7 +143,7 @@ public struct MenuBarContent: View {
                 Spacer()
             }
             .padding(.horizontal, 8)
-            .padding(.vertical, 5)
+            .frame(height: PopoverLayout.rowHeight)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -199,7 +217,7 @@ struct MenuBarRow: View {
                 trailing
             }
             .padding(.horizontal, 8)
-            .padding(.vertical, 5)
+            .frame(height: PopoverLayout.rowHeight)
             .background(isHovering ? Color.primary.opacity(0.08) : .clear, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .contentShape(Rectangle())
         }
@@ -238,4 +256,12 @@ struct MenuBarRow: View {
         case .idle: device.isLaunchable ? .secondary : .orange
         }
     }
+}
+
+/// Fixed measurements of the menu bar popover (see `MenuBarContent.listHeight`).
+enum PopoverLayout {
+    static let rowHeight: CGFloat = 44
+    static let sectionHeaderHeight: CGFloat = 24
+    static let listPadding: CGFloat = 8
+    static let maxListHeight: CGFloat = 420
 }
