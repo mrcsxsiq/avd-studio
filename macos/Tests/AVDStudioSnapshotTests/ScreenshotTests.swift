@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import XCTest
 
@@ -243,6 +244,24 @@ final class ScreenshotTests: SnapshotTestCase {
         let model = SampleData.model(devices: [], toolchain: SampleData.missingToolchain)
         model.setSetupPlanForPreview(SampleData.setupPlan)
         assertScreenshot(of: SetupView(model: model), size: CGSize(width: 760, height: 760), named: "setup-automatic", schemes: [.light])
+    }
+
+    // MARK: About
+
+    /// The real app icon, so the screenshot shows what users see (a SwiftPM test has no asset catalog).
+    @MainActor
+    private func appIcon() -> NSImage {
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("App/Assets.xcassets/AppIcon.appiconset/icon_512x512@2x.png")
+        return NSImage(contentsOf: url) ?? NSImage()
+    }
+
+    @MainActor
+    func testAboutWindow() {
+        let model = AboutModel(info: AppInfo(version: "0.1.0", build: "1"), opener: NoopOpener())
+        let view = AboutView(model: model, icon: appIcon())
+        assertScreenshot(of: view, size: NSHostingView(rootView: view).fittingSize, named: "about")
     }
 
     // MARK: New device

@@ -42,8 +42,14 @@ struct AVDStudioApp: App {
                 Button("Refresh Devices") { Task { await model.refresh() } }
                     .keyboardShortcut("r", modifiers: .command)
             }
-            UpdateCommands(updates: updates)
+            AppInfoCommands(updates: updates)
         }
+
+        Window("About AVD Studio", id: "about") {
+            AboutView(model: AboutModel())
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
 
         Window("Software Update", id: "updates") {
             UpdateView(model: updates)
@@ -69,13 +75,17 @@ struct AVDStudioApp: App {
     }
 }
 
-/// "Check for Updates…" right under "About AVD Studio", where Mac users look for it.
-struct UpdateCommands: Commands {
+/// "About AVD Studio" and "Check for Updates…" at the top of the app menu, where Mac users look for them.
+struct AppInfoCommands: Commands {
     let updates: UpdateModel
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
-        CommandGroup(after: .appInfo) {
+        CommandGroup(replacing: .appInfo) {
+            Button("About AVD Studio") {
+                NSApp.activate(ignoringOtherApps: true)
+                openWindow(id: "about")
+            }
             Button("Check for Updates…") {
                 openWindow(id: "updates")
                 Task { await updates.checkForUpdates() }
