@@ -4,15 +4,19 @@ import com.github.ajalt.clikt.testing.test
 import dev.marcos.avdstudio.core.AvdStudioCore
 import dev.marcos.avdstudio.core.environment.StaticEnvironment
 import dev.marcos.avdstudio.core.process.NativeCommandRunner
+import kotlinx.cinterop.ExperimentalForeignApi
 import okio.FileSystem
 import okio.Path
+import platform.posix.chmod
 import kotlin.random.Random
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
+@OptIn(ExperimentalForeignApi::class)
 class AvdStudioCliTest {
     private val fs = FileSystem.SYSTEM
     private val root: Path = FileSystem.SYSTEM_TEMPORARY_DIRECTORY / "avdstudio-cli-test-${Random.nextLong().toULong()}"
@@ -207,5 +211,144 @@ class AvdStudioCliTest {
     @Test
     fun theMainHelpPointsToDoctorWhenSomethingIsWrong() {
         assertContains(cli.test("--help").stdout, "Run `avdstudio doctor`")
+    }
+
+    // MARK: setup
+
+    private val brewPrefix get() = root / "homebrew"
+    private val brewSdk get() = brewPrefix / "share/android-commandlinetools"
+
+    private fun executable(
+        path: Path,
+        script: String,
+    ) {
+        write(path, script)
+        chmod(path.toString(), 0b111_101_101u)
+    }
+
+    /** A `brew` that logs its arguments and, for the cask, lays out the command-line tools with a fake sdkmanager. */
+    private fun installFakeHomebrew() {
+        // '¤' stands for '$' so the shell scripts can live in raw strings without Kotlin templating.
+        val sdkManager =
+            """
+            #!/bin/sh
+            echo "sdkmanager ¤*" >> "$root/sdkmanager.log"
+            sdk=""
+            for a in "¤@"; do case "¤a" in --sdk_root=*) sdk="¤{a#--sdk_root=}";; esac; done
+            for a in "¤@"; do
+              case "¤a" in
+                emulator) mkdir -p "¤sdk/emulator" && touch "¤sdk/emulator/emulator";;
+                platform-tools) mkdir -p "¤sdk/platform-tools" && touch "¤sdk/platform-tools/adb";;
+                system-images*) dir="¤sdk/¤(echo "¤a" | tr ';' '/')"; mkdir -p "¤dir" && touch "¤dir/system.img";;
+              esac
+            done
+            """.trimIndent().replace('¤', '$')
+        executable(root / "fake-sdkmanager", sdkManager)
+        val brew =
+            """
+            #!/bin/sh
+            echo "brew ¤*" >> "$root/brew.log"
+            case "¤*" in
+              *android-commandlinetools*)
+                mkdir -p "$brewSdk/cmdline-tools/latest/bin"
+                cp "$root/fake-sdkmanager" "$brewSdk/cmdline-tools/latest/bin/sdkmanager"
+                touch "$brewSdk/cmdline-tools/latest/bin/avdmanager";;
+            esac
+            """.trimIndent().replace('¤', '$')
+        executable(brewPrefix / "bin/brew", brew)
+    }
+
+    private fun installJava() = write(root / ".sdkman/candidates/java/current/bin/java")
+
+    @Test
+    fun setupDryRunListsTheStepsAndWhereTheyInstall() {
+        installJava()
+
+        val result = cli.test(arrayOf("setup", "--dry-run") + locations)
+
+        assertEquals(0, result.statusCode)
+        assertContains(result.stdout, "1. Install the Android command-line tools")
+        assertContains(result.stdout, "brew install --cask android-commandlinetools")
+        assertContains(result.stdout, "Into: $brewSdk")
+        assertFalse(result.stdout.contains("openjdk"), "Java is installed, so no Java step")
+    }
+
+    @Test
+    fun setupWithoutHomebrewExplainsTheAlternatives() {
+        val result = cli.test(arrayOf("setup") + locations)
+
+        assertEquals(1, result.statusCode)
+        assertContains(result.stderr, "Homebrew is not installed")
+        assertContains(result.stderr, "avdstudio setup --script")
+        assertContains(result.stderr, "--sdk-path")
+    }
+
+    @Test
+    fun setupScriptPrintsARunnableScriptThatInstallsHomebrewFirst() {
+        val result = cli.test(arrayOf("setup", "--script") + locations)
+
+        assertEquals(0, result.statusCode)
+        assertTrue(result.stdout.startsWith("#!/bin/bash"))
+        assertContains(result.stdout, "install.sh")
+        assertContains(result.stdout, "brew install --cask android-commandlinetools")
+    }
+
+    @Test
+    fun setupRefusesToAcceptTheLicensesOnTheUsersBehalf() {
+        installFakeHomebrew()
+        installJava()
+
+        val result = cli.test(arrayOf("setup") + locations)
+
+        assertEquals(1, result.statusCode)
+        assertContains(result.stderr, "--accept-licenses")
+        assertContains(result.stderr, "developer.android.com/studio/terms")
+        assertFalse(fs.exists(root / "brew.log"), "nothing may run before the license is accepted")
+    }
+
+    @Test
+    fun setupInstallsEverythingThenReportsAHealthySdk() {
+        installFakeHomebrew()
+        installJava()
+        fs.createDirectories(avdHome)
+
+        val result = cli.test(arrayOf("setup", "--accept-licenses") + locations)
+
+        assertEquals(0, result.statusCode, result.stdout + result.stderr)
+        assertContains(result.stdout, "[1/3] Install the Android command-line tools")
+        assertContains(result.stdout, "[2/3] Accept the Android SDK licenses")
+        assertContains(result.stdout, "[3/3] Install the emulator and platform tools")
+        assertContains(result.stdout, "Everything looks good.")
+        assertEquals("brew install --cask android-commandlinetools\n", fs.read(root / "brew.log") { readUtf8() })
+        val sdkManagerLog = fs.read(root / "sdkmanager.log") { readUtf8() }
+        assertContains(sdkManagerLog, "--sdk_root=$brewSdk --licenses")
+        assertContains(sdkManagerLog, "--sdk_root=$brewSdk emulator platform-tools")
+        assertTrue(fs.exists(brewSdk / "emulator/emulator"))
+        assertContains(result.stdout, "Installed into $brewSdk. Use --sdk-path")
+    }
+
+    @Test
+    fun setupIsANoOpOnceEverythingIsInstalled() {
+        installSdk()
+        installJava()
+
+        val result = cli.test(arrayOf("setup", "--accept-licenses") + locations)
+
+        assertEquals(0, result.statusCode)
+        assertContains(result.stdout, "Nothing to install")
+    }
+
+    @Test
+    fun setupStopsAtAFailingStepAndShowsItsOutput() {
+        installFakeHomebrew()
+        installJava()
+        executable(brewPrefix / "bin/brew", "#!/bin/sh\necho 'Error: No available formula' >&2\nexit 1\n")
+
+        val result = cli.test(arrayOf("setup", "--accept-licenses") + locations)
+
+        assertEquals(1, result.statusCode)
+        assertContains(result.stderr, "failed (exit 1)")
+        assertContains(result.stderr, "No available formula")
+        assertContains(result.stderr, "run `avdstudio setup` again")
     }
 }

@@ -13,6 +13,7 @@ import dev.marcos.avdstudio.core.environment.Environment
 import dev.marcos.avdstudio.core.internal.systemFileSystem
 import dev.marcos.avdstudio.core.process.Command
 import dev.marcos.avdstudio.core.process.CommandException
+import dev.marcos.avdstudio.core.process.CommandResult
 import dev.marcos.avdstudio.core.process.CommandRunner
 import dev.marcos.avdstudio.core.sdk.AndroidTool
 import dev.marcos.avdstudio.core.sdk.JavaInstallation
@@ -20,6 +21,9 @@ import dev.marcos.avdstudio.core.sdk.JavaLocator
 import dev.marcos.avdstudio.core.sdk.SdkLocator
 import dev.marcos.avdstudio.core.sdk.ToolEnvironment
 import dev.marcos.avdstudio.core.sdk.ToolchainStatus
+import dev.marcos.avdstudio.core.setup.SetupPlan
+import dev.marcos.avdstudio.core.setup.SetupPlanner
+import dev.marcos.avdstudio.core.setup.SetupStep
 import okio.FileSystem
 import okio.Path.Companion.toPath
 
@@ -41,6 +45,7 @@ public class AvdStudioCore internal constructor(
     private val javaLocator = JavaLocator(fileSystem, environment)
     private val avdHomeLocator = AvdHomeLocator(environment)
     private val avdRepository = AvdRepository(fileSystem)
+    private val setupPlanner = SetupPlanner(fileSystem, environment)
 
     public fun toolchainStatus(sdkPathOverride: String? = null): ToolchainStatus = sdkLocator.resolve(sdkPathOverride)
 
@@ -116,5 +121,33 @@ public class AvdStudioCore internal constructor(
             throw CommandException("Could not stop $avdName: ${result.standardError.trim().ifEmpty { "kill failed" }}")
         }
         return true
+    }
+
+    /** What is missing on this Mac and how to install it. Nothing runs. */
+    public fun setupPlan(
+        sdkPathOverride: String? = null,
+        avdHomeOverride: String? = null,
+    ): SetupPlan =
+        setupPlanner.plan(
+            toolchain = toolchainStatus(sdkPathOverride),
+            java = javaInstallation(),
+            avds = listAvds(sdkPathOverride, avdHomeOverride),
+        )
+
+    /**
+     * Runs one step of a [SetupPlan] to completion. The environment (JAVA_HOME, PATH, ANDROID_HOME) is
+     * resolved now, not when the plan was made, so a JDK installed by an earlier step is picked up.
+     */
+    @Throws(CommandException::class)
+    public fun runSetupStep(
+        step: SetupStep,
+        sdkPathOverride: String? = null,
+        avdHomeOverride: String? = null,
+    ): CommandResult {
+        val plan = setupPlanner.plan(toolchainStatus(sdkPathOverride), javaInstallation(), emptyList())
+        val toolEnvironment = ToolEnvironment(environment).build(plan.sdkPath, avdHome(avdHomeOverride), javaInstallation())
+        val brewBin = setupPlanner.homebrewPath()?.substringBeforeLast('/')
+        val path = listOfNotNull(brewBin, toolEnvironment["PATH"]).joinToString(":")
+        return runner.run(step.command.copy(environment = toolEnvironment + step.command.environment + ("PATH" to path)))
     }
 }

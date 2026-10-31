@@ -106,6 +106,35 @@ public enum SampleData {
         )
     }
 
+    /// The plan for a Mac that has Homebrew but nothing Android-related.
+    public static let setupPlan = SetupPlan(
+        steps: [
+            SetupStep(
+                kind: .commandLineTools, title: "Install the Android command-line tools",
+                displayCommand: "brew install --cask android-commandlinetools", requiresHomebrew: true, requiresLicenseAcceptance: false),
+            SetupStep(
+                kind: .java, title: "Install Java (OpenJDK 17)", displayCommand: "brew install openjdk@17", requiresHomebrew: true,
+                requiresLicenseAcceptance: false),
+            SetupStep(
+                kind: .licenses, title: "Accept the Android SDK licenses", displayCommand: "yes | sdkmanager --licenses",
+                requiresHomebrew: false, requiresLicenseAcceptance: true),
+            SetupStep(
+                kind: .sdkPackages, title: "Install the emulator and platform tools",
+                displayCommand: "sdkmanager \"emulator\" \"platform-tools\"", requiresHomebrew: false, requiresLicenseAcceptance: false),
+        ],
+        homebrewInstalled: true,
+        sdkPath: "/opt/homebrew/share/android-commandlinetools",
+        shellScript: "#!/bin/bash\nset -euo pipefail\nbrew install --cask android-commandlinetools\nbrew install openjdk@17\n"
+    )
+
+    public static let setupPlanWithoutHomebrew = SetupPlan(
+        steps: setupPlan.steps,
+        homebrewInstalled: false,
+        sdkPath: setupPlan.sdkPath,
+        shellScript:
+            "#!/bin/bash\nset -euo pipefail\n/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"\nbrew install --cask android-commandlinetools\n"
+    )
+
     public static let diagnostics: [DoctorItem] = [
         .init(id: "sdk", title: "Android SDK", status: .pass, detail: "/Users/you/Library/Android/sdk (Android Studio default)"),
         .init(id: "emulator", title: "emulator", status: .pass, detail: "/Users/you/Library/Android/sdk/emulator/emulator"),
@@ -146,6 +175,10 @@ public struct PreviewDeviceService: DeviceService {
     public func diagnose(locations: Locations) async -> [DoctorItem] { SampleData.diagnostics }
     public func launch(_ device: VirtualDevice, options: LaunchOptions, locations: Locations) async throws {}
     public func stop(_ device: VirtualDevice) async throws {}
+    public func setupPlan(locations: Locations) async -> SetupPlan { SampleData.setupPlan }
+    public func runSetupStep(_ step: SetupStep, locations: Locations) async throws -> SetupStepResult {
+        SetupStepResult(exitCode: 0, output: "")
+    }
 }
 
 /// Always reports "nothing published"; backs previews.

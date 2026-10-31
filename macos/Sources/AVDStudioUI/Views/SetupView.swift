@@ -3,6 +3,7 @@ import SwiftUI
 /// Shown when no usable Android SDK is found: explains what is missing and offers the ways out.
 struct SetupView: View {
     @Bindable var model: AppModel
+    @State private var installer: SetupModel?
 
     static let brewCommand = "brew install --cask android-commandlinetools"
 
@@ -36,19 +37,24 @@ struct SetupView: View {
 
                 VStack(spacing: 10) {
                     Button {
+                        installer = model.makeSetupModel()
+                    } label: {
+                        Label(
+                            model.setupPlan.canRunAutomatically ? "Install Automatically…" : "Install…",
+                            systemImage: model.setupPlan.canRunAutomatically ? "sparkles" : "terminal"
+                        )
+                        .frame(maxWidth: 260)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .disabled(model.setupPlan.isEmpty)
+
+                    Button {
                         if let path = FolderPicker.choose(message: "Choose your Android SDK folder", startingAt: model.toolchain?.sdkPath) {
                             Task { await model.update(locations: Locations(sdkPath: path, avdHome: model.locations.avdHome)) }
                         }
                     } label: {
-                        Label("Choose SDK Folder…", systemImage: "folder.badge.gearshape").frame(maxWidth: 260)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-
-                    Button {
-                        Clipboard.copy(Self.brewCommand)
-                    } label: {
-                        Label("Copy Homebrew Install Command", systemImage: "terminal").frame(maxWidth: 260)
+                        Label("I Already Have an SDK…", systemImage: "folder.badge.gearshape").frame(maxWidth: 260)
                     }
                     .controlSize(.large)
 
@@ -56,18 +62,27 @@ struct SetupView: View {
                         .buttonStyle(.link)
                 }
 
-                Text(Self.brewCommand)
-                    .font(.system(.callout, design: .monospaced))
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+                Text(
+                    model.setupPlan.canRunAutomatically
+                        ? "Uses Homebrew to install Google's command-line tools, a Java runtime and the emulator. Nothing else is changed."
+                        : "AVD Studio can install everything with Homebrew. Without it, you get a script to run in Terminal."
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 440)
             }
             .padding(40)
             .frame(maxWidth: .infinity)
         }
+        .task { await model.loadSetupPlan() }
+        .sheet(item: $installer) { installer in
+            SetupInstallView(model: installer) { Task { await model.completeSetup(installer.plan) } }
+        }
     }
 }
+
+extension SetupModel: Identifiable {}
 
 struct ToolList: View {
     let toolchain: ToolchainSummary

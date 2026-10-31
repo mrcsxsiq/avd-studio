@@ -131,4 +131,52 @@ struct KotlinDeviceServiceTests {
     @Test func runningDevicesNeverThrows() async {
         _ = await makeService().runningDevices()
     }
+
+    @Test func setupPlanForAnEmptyMacWithoutHomebrewCannotRunItself() async {
+        let plan = await makeService().setupPlan(locations: Locations())
+
+        #expect(plan.steps.map(\.kind).first == .commandLineTools)
+        #expect(plan.steps.contains { $0.kind == .sdkPackages })
+        #expect(plan.homebrewInstalled == false)
+        #expect(plan.canRunAutomatically == false)
+        #expect(plan.shellScript.contains("brew install --cask android-commandlinetools"))
+        #expect(plan.sdkPath == home.appendingPathComponent("homebrew/share/android-commandlinetools").path)
+    }
+
+    @Test func setupPlanIsEmptyForAConfiguredMac() async throws {
+        try installSDK(at: "Library/Android/sdk")
+        try write(".sdkman/candidates/java/current/bin/java")
+
+        let plan = await makeService().setupPlan(locations: Locations())
+
+        #expect(plan.isEmpty)
+    }
+
+    @Test func runSetupStepExecutesTheRealCommandAndReturnsItsOutput() async throws {
+        // A fake `brew` under the hermetic prefix records that it ran and succeeds.
+        let brew = home.appendingPathComponent("homebrew/bin/brew")
+        try write("homebrew/bin/brew", "#!/bin/sh\necho \"brew $@\"\n")
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: brew.path)
+        let service = makeService()
+        let plan = await service.setupPlan(locations: Locations())
+        #expect(plan.homebrewInstalled)
+        let step = try #require(plan.steps.first { $0.kind == .commandLineTools })
+
+        let result = try await service.runSetupStep(step, locations: Locations())
+
+        #expect(result.isSuccess)
+        #expect(result.output.contains("brew install --cask android-commandlinetools"))
+    }
+
+    @Test func runSetupStepReportsACommandThatCannotStart() async throws {
+        // Homebrew "exists" but is not executable: the step must fail cleanly, not crash.
+        try write("homebrew/bin/brew", "")
+        let service = makeService()
+        let plan = await service.setupPlan(locations: Locations())
+        let step = try #require(plan.steps.first { $0.kind == .commandLineTools })
+
+        await #expect(throws: ServiceError.self) {
+            try await service.runSetupStep(step, locations: Locations())
+        }
+    }
 }

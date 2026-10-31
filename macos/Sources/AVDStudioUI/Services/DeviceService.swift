@@ -49,4 +49,8 @@ public protocol DeviceService: Sendable {
     func diagnose(locations: Locations) async -> [DoctorItem]
     func launch(_ device: VirtualDevice, options: LaunchOptions, locations: Locations) async throws
     func stop(_ device: VirtualDevice) async throws
+    /// What is missing and how to install it. Nothing runs.
+    func setupPlan(locations: Locations) async -> SetupPlan
+    /// Runs one step to completion. Throws only when the command cannot be started at all.
+    func runSetupStep(_ step: SetupStep, locations: Locations) async throws -> SetupStepResult
 }

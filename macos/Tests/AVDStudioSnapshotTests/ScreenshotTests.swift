@@ -196,4 +196,67 @@ final class ScreenshotTests: SnapshotTestCase {
         assertUpdate(.failed(UpdateError.rateLimited.localizedDescription), named: "update-failed", schemes: [.light])
         assertUpdate(.noReleases(checkedAt: Date(timeIntervalSinceNow: -30)), named: "update-no-releases", schemes: [.light])
     }
+
+    // MARK: One-click SDK installation
+
+    @MainActor
+    private func installer(_ plan: SetupPlan = SampleData.setupPlan) -> SetupModel {
+        SetupModel(plan: plan, service: PreviewDeviceService(), locations: Locations(), opener: NoopOpener())
+    }
+
+    @MainActor
+    func testSetupInstallSheetBeforeStarting() {
+        assertScreenshot(of: SetupInstallView(model: installer()) {}, size: CGSize(width: 560, height: 560), named: "install-ready")
+    }
+
+    @MainActor
+    func testSetupInstallSheetWithoutHomebrew() {
+        assertScreenshot(
+            of: SetupInstallView(model: installer(SampleData.setupPlanWithoutHomebrew)) {},
+            size: CGSize(width: 560, height: 560),
+            named: "install-no-homebrew",
+            schemes: [.light]
+        )
+    }
+
+    @MainActor
+    func testSetupInstallSheetAfterAFailure() async {
+        let model = SetupModel(
+            plan: SampleData.setupPlan, service: FailingSetupService(failAt: .licenses), locations: Locations(), opener: NoopOpener()
+        )
+        model.acceptedLicense = true
+        await model.run()
+        assertScreenshot(
+            of: SetupInstallView(model: model) {}, size: CGSize(width: 560, height: 560), named: "install-failed", schemes: [.light])
+    }
+
+    @MainActor
+    func testSetupScreenOffersAutomaticInstall() {
+        let model = SampleData.model(devices: [], toolchain: SampleData.missingToolchain)
+        model.setSetupPlanForPreview(SampleData.setupPlan)
+        assertScreenshot(of: SetupView(model: model), size: CGSize(width: 760, height: 760), named: "setup-automatic", schemes: [.light])
+    }
+}
+
+private struct NoopOpener: FileOpening {
+    func open(_ url: URL) {}
+    func reveal(_ url: URL) {}
+}
+
+/// Succeeds until `failAt`, which fails with some output.
+private struct FailingSetupService: DeviceService {
+    let failAt: SetupStep.Kind
+
+    func snapshot(locations: Locations) async -> DeviceSnapshot { await PreviewDeviceService().snapshot(locations: locations) }
+    func runningDevices() async -> [RunningDevice] { [] }
+    func diagnose(locations: Locations) async -> [DoctorItem] { [] }
+    func launch(_ device: VirtualDevice, options: LaunchOptions, locations: Locations) async throws {}
+    func stop(_ device: VirtualDevice) async throws {}
+    func setupPlan(locations: Locations) async -> SetupPlan { SampleData.setupPlan }
+
+    func runSetupStep(_ step: SetupStep, locations: Locations) async throws -> SetupStepResult {
+        step.kind == failAt
+            ? SetupStepResult(exitCode: 1, output: "Warning: Could not find sdkmanager\nError: Unknown command line argument --licenses")
+            : SetupStepResult(exitCode: 0, output: "")
+    }
 }

@@ -31,6 +31,7 @@ public final class AppModel {
     public private(set) var toolchain: ToolchainSummary?
     public private(set) var avdHome = ""
     public private(set) var diagnostics: [DoctorItem] = []
+    public private(set) var setupPlan: SetupPlan = .empty
     public private(set) var hasLoaded = false
     public private(set) var isRefreshing = false
 
@@ -126,6 +127,31 @@ public final class AppModel {
 
     public func runDiagnostics() async {
         diagnostics = await service.diagnose(locations: locations)
+        setupPlan = await service.setupPlan(locations: locations)
+    }
+
+    public func loadSetupPlan() async {
+        setupPlan = await service.setupPlan(locations: locations)
+    }
+
+    /// For previews and screenshot tests only: shows a plan without asking the service.
+    public func setSetupPlanForPreview(_ plan: SetupPlan) {
+        setupPlan = plan
+    }
+
+    public func makeSetupModel() -> SetupModel {
+        SetupModel(plan: setupPlan, service: service, locations: locations)
+    }
+
+    /// After a successful installation: reload, and switch to the SDK the steps installed into when the
+    /// previous one was unusable (Homebrew's tools live in their own folder).
+    public func completeSetup(_ plan: SetupPlan) async {
+        let wasConfigured = toolchain?.isConfigured == true
+        await refresh()
+        if !wasConfigured, toolchain?.isConfigured != true, !plan.sdkPath.isEmpty, plan.sdkPath != toolchain?.sdkPath {
+            await update(locations: Locations(sdkPath: plan.sdkPath, avdHome: locations.avdHome))
+        }
+        await loadSetupPlan()
     }
 
     /// Polls for running emulators so the window and the menu bar stay truthful, even for emulators

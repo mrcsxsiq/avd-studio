@@ -30,7 +30,12 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
   double-click to start. Per-device actions: start, stop, cold boot, wipe data and start (with
   confirmation), show in Finder.
 - Menu bar item to start, test and stop emulators without opening the window; it shows how many are running.
-- Setup screen when no Android SDK is found, with a folder picker and the Homebrew install command.
+- One-click setup when no Android SDK is found: the app lists what it will run (`brew install --cask
+  android-commandlinetools`, `brew install openjdk@17`, `sdkmanager` for the emulator, platform tools and the
+  system images your devices need), asks you to accept the Android SDK License Agreement, runs the steps with
+  their output visible, and switches to the new SDK. Without Homebrew it hands you the same steps as a script to
+  open in Terminal. Settings → Diagnostics has the same "Fix Automatically…" button. Already have an SDK? Pick the folder.
+- `avdstudio setup` does the same from the terminal (`--dry-run`, `--script`, `--accept-licenses`).
 - Settings to choose the SDK folder and the virtual-device folder (for example on an external drive),
   show or hide the menu bar item, and run diagnostics.
 - Software update: Settings and the app menu ("Check for Updates…") show the installed version next to the

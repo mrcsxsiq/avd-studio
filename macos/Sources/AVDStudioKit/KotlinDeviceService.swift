@@ -71,7 +71,57 @@ public final class KotlinDeviceService: DeviceService, @unchecked Sendable {
         }.value
     }
 
+    public func setupPlan(locations: Locations) async -> AVDStudioUI.SetupPlan {
+        await Task.detached { [self] in
+            Self.plan(from: core.setupPlan(sdkPathOverride: locations.sdkPath, avdHomeOverride: locations.avdHome))
+        }.value
+    }
+
+    public func runSetupStep(_ step: AVDStudioUI.SetupStep, locations: Locations) async throws -> SetupStepResult {
+        try await Task.detached { [self] in
+            // Steps are matched by kind: the Kotlin plan is the source of truth for the commands.
+            let plan = core.setupPlan(sdkPathOverride: locations.sdkPath, avdHomeOverride: locations.avdHome)
+            guard let kotlinStep = plan.steps.first(where: { Self.kind(from: $0.kind) == step.kind }) else {
+                return SetupStepResult(exitCode: 0, output: "Nothing left to do for this step.")
+            }
+            do {
+                let result = try core.runSetupStep(step: kotlinStep, sdkPathOverride: locations.sdkPath, avdHomeOverride: locations.avdHome)
+                let output = [result.standardOutput, result.standardError].filter { !$0.isEmpty }.joined(separator: "\n")
+                return SetupStepResult(exitCode: result.exitCode, output: output)
+            } catch {
+                throw ServiceError(Self.message(for: error))
+            }
+        }.value
+    }
+
     // MARK: Mapping
+
+    static func plan(from plan: AVDStudioCore.SetupPlan) -> AVDStudioUI.SetupPlan {
+        AVDStudioUI.SetupPlan(
+            steps: plan.steps.map {
+                AVDStudioUI.SetupStep(
+                    kind: kind(from: $0.kind),
+                    title: $0.title,
+                    displayCommand: $0.displayCommand,
+                    requiresHomebrew: $0.requiresHomebrew,
+                    requiresLicenseAcceptance: $0.requiresLicenseAcceptance
+                )
+            },
+            homebrewInstalled: plan.homebrewPath != nil,
+            sdkPath: plan.sdkPath,
+            shellScript: plan.shellScript
+        )
+    }
+
+    static func kind(from kind: AVDStudioCore.SetupStepKind) -> AVDStudioUI.SetupStep.Kind {
+        switch kind.name {
+        case "COMMAND_LINE_TOOLS": .commandLineTools
+        case "JAVA": .java
+        case "LICENSES": .licenses
+        case "SDK_PACKAGES": .sdkPackages
+        default: .systemImages
+        }
+    }
 
     static func device(from avd: Avd) -> VirtualDevice {
         VirtualDevice(

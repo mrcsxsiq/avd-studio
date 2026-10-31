@@ -18,6 +18,7 @@ public struct SettingsView: View {
     @Environment(\.openWindow) private var openWindow
     @State private var sdkText = ""
     @State private var avdText = ""
+    @State private var installer: SetupModel?
 
     private let height: CGFloat
 
@@ -93,7 +94,15 @@ public struct SettingsView: View {
 
             Section {
                 ForEach(model.diagnostics) { DiagnosticRow(item: $0) }
-                Button("Run Diagnostics") { Task { await model.runDiagnostics() } }
+                HStack {
+                    Button("Run Diagnostics") { Task { await model.runDiagnostics() } }
+                    if !model.setupPlan.isEmpty {
+                        Button(model.setupPlan.canRunAutomatically ? "Fix Automatically…" : "How to Fix…") {
+                            installer = model.makeSetupModel()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
             } header: {
                 Text("Diagnostics")
             }
@@ -102,6 +111,9 @@ public struct SettingsView: View {
         .frame(width: 600, height: height)
         .onAppear { syncFields() }
         .task { await model.runDiagnostics() }
+        .sheet(item: $installer) { installer in
+            SetupInstallView(model: installer) { Task { await model.completeSetup(installer.plan) } }
+        }
     }
 
     private func updatesSection(_ updates: UpdateModel) -> some View {

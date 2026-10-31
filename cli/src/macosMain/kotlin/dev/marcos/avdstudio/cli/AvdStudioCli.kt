@@ -15,6 +15,7 @@ import dev.marcos.avdstudio.core.emulator.EmulatorLaunchOptions
 import dev.marcos.avdstudio.core.environment.SystemEnvironment
 import dev.marcos.avdstudio.core.process.CommandException
 import dev.marcos.avdstudio.core.process.NativeCommandRunner
+import dev.marcos.avdstudio.core.setup.SetupPlan
 import kotlinx.serialization.encodeToString
 
 /** Builds the core; tests inject one wired to a temporary environment. */
@@ -31,6 +32,7 @@ class AvdStudioCli(
             ListCommand(coreFactory),
             StartCommand(coreFactory),
             DoctorCommand(coreFactory),
+            SetupCommand(coreFactory),
             SdkPathCommand(coreFactory),
         )
     }
@@ -155,5 +157,103 @@ class SdkPathCommand(
         val toolchain = coreFactory().toolchainStatus(location.sdkPath)
         echo(toolchain.sdkPath)
         if (!toolchain.sdkDirectoryExists) throw ProgramResult(1)
+    }
+}
+
+class SetupCommand(
+    private val coreFactory: CoreFactory,
+) : CliktCommand(name = "setup") {
+    private val location by LocationOptions()
+    private val dryRun by option("--dry-run", help = "Show what would be installed and stop.").flag()
+    private val script by option("--script", help = "Print the equivalent shell script instead of running anything.").flag()
+    private val acceptLicenses by
+        option(
+            "--accept-licenses",
+            help = "Accept the Android SDK License Agreement (${SetupPlan.LICENSE_URL}) so sdkmanager can install packages.",
+        ).flag()
+
+    override fun help(context: Context) = "Install what is missing: command-line tools, Java, the emulator and system images."
+
+    override fun helpEpilog(context: Context) =
+        """
+        Uses Homebrew for the Android command-line tools and Java, and sdkmanager for everything else.
+        Without Homebrew it cannot run the steps itself; use --script to get a script to run in a terminal,
+        or install the tools from ${SetupPlan.COMMAND_LINE_TOOLS_URL} and pass --sdk-path.
+
+        Steps that already succeeded are skipped when you run it again.
+
+        Examples:
+          avdstudio setup --dry-run
+          avdstudio setup --accept-licenses
+          avdstudio setup --script > setup.sh
+        """.trimIndent()
+
+    override fun run() {
+        val core = coreFactory()
+        val plan = core.setupPlan(location.sdkPath, location.avdHome)
+        if (script) {
+            echo(plan.shellScript, trailingNewline = false)
+            return
+        }
+        if (plan.isEmpty) {
+            echo(Output.success("Nothing to install: your Android SDK is ready."))
+            return
+        }
+
+        echo(Output.heading("This will:"))
+        plan.steps.forEachIndexed { index, step ->
+            echo("  ${index + 1}. ${step.title}")
+            echo(Output.dim("     ${step.displayCommand}"))
+        }
+        echo("Into: ${plan.sdkPath}")
+        echo()
+        if (dryRun) return
+
+        if (!plan.canRunAutomatically) {
+            echo("Homebrew is not installed, so avdstudio cannot run these steps itself.", err = true)
+            echo("  - Install Homebrew (${SetupPlan.HOMEBREW_URL}) and run `avdstudio setup` again, or", err = true)
+            echo("  - run the equivalent script:  avdstudio setup --script > setup.sh && bash setup.sh, or", err = true)
+            echo("  - download the tools from ${SetupPlan.COMMAND_LINE_TOOLS_URL} and use --sdk-path.", err = true)
+            throw ProgramResult(1)
+        }
+        if (plan.needsLicenseAcceptance && !acceptLicenses) {
+            echo("Installing SDK packages means accepting the Android SDK License Agreement:", err = true)
+            echo("  ${SetupPlan.LICENSE_URL}", err = true)
+            echo("Run again with --accept-licenses once you have read it.", err = true)
+            throw ProgramResult(1)
+        }
+
+        plan.steps.forEachIndexed { index, step ->
+            echo("[${index + 1}/${plan.steps.size}] ${step.title}…")
+            val result =
+                try {
+                    core.runSetupStep(step, location.sdkPath, location.avdHome)
+                } catch (error: CommandException) {
+                    echo(Output.failure("    ✗ ${error.message}"), err = true)
+                    throw ProgramResult(1)
+                }
+            if (!result.isSuccess) {
+                echo(Output.failure("    ✗ failed (exit ${result.exitCode})"), err = true)
+                result.standardError
+                    .ifBlank { result.standardOutput }
+                    .trim()
+                    .lines()
+                    .takeLast(20)
+                    .forEach { echo("      $it", err = true) }
+                echo(Output.dim("    Fix the problem and run `avdstudio setup` again; finished steps are skipped."), err = true)
+                throw ProgramResult(1)
+            }
+            echo(Output.success("    ✓ done"))
+        }
+        echo()
+
+        // The tools may have landed in Homebrew's own SDK root, which an explicit --sdk-path would hide.
+        val sdkPath = location.sdkPath?.takeIf { it == plan.sdkPath } ?: location.sdkPath?.let { plan.sdkPath }
+        if (location.sdkPath != null && location.sdkPath != plan.sdkPath) {
+            echo(Output.dim("Installed into ${plan.sdkPath}. Use --sdk-path ${plan.sdkPath} (or AVDSTUDIO_SDK_PATH) from now on."))
+        }
+        val report = core.doctor(sdkPath, location.avdHome)
+        echo(Output.doctor(report))
+        if (!report.isHealthy) throw ProgramResult(1)
     }
 }

@@ -23,6 +23,7 @@ private class RecordingRunner : CommandRunner {
         executed += command
         return when (command.executable) {
             "/bin/ps" -> CommandResult(0, psOutput, "")
+            "/opt/homebrew/bin/brew" -> CommandResult(0, "brewed", "")
             "/bin/kill" -> CommandResult(killExitCode, "", if (killExitCode == 0) "" else "No such process")
             else -> CommandResult(0, "", "")
         }
@@ -203,5 +204,22 @@ class AvdStudioCoreTest {
         fs.touch("/jdk/bin/java")
 
         assertTrue(core("JAVA_HOME" to "/jdk").doctor().nextSteps.isEmpty())
+    }
+
+    @Test
+    fun runSetupStepResolvesTheEnvironmentAtRunTimeAndKeepsHomebrewOnThePath() {
+        fs.touch("/opt/homebrew/bin/brew")
+        fs.touch("/jdk/bin/java")
+        val core = core("JAVA_HOME" to "/jdk", "PATH" to "/usr/bin", "HOMEBREW_PREFIX" to "/opt/homebrew")
+        val step = core.setupPlan().steps.first { it.kind == dev.marcos.avdstudio.core.setup.SetupStepKind.COMMAND_LINE_TOOLS }
+
+        val result = core.runSetupStep(step)
+
+        assertEquals("brewed", result.standardOutput)
+        val executed = runner.executed.single { it.executable == "/opt/homebrew/bin/brew" }
+        assertEquals("/jdk", executed.environment["JAVA_HOME"])
+        assertEquals("1", executed.environment["NONINTERACTIVE"])
+        assertEquals("/opt/homebrew/share/android-commandlinetools", executed.environment["ANDROID_HOME"])
+        assertTrue(executed.environment.getValue("PATH").startsWith("/opt/homebrew/bin:"))
     }
 }

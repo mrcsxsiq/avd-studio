@@ -13,6 +13,11 @@ actor FakeDeviceService: DeviceService {
     var toolchain: ToolchainSummary
     var running: [RunningDevice]
     var launchError: ServiceError?
+    var plan: SetupPlan = .empty
+    /// exit code per step kind; missing = 0. A step kind in `startFailures` throws instead.
+    var stepExitCodes: [SetupStep.Kind: Int32] = [:]
+    var startFailures: Set<SetupStep.Kind> = []
+    private(set) var ranSteps: [SetupStep.Kind] = []
     private(set) var launches: [Launch] = []
     private(set) var stops: [String] = []
     private(set) var snapshotRequests: [Locations] = []
@@ -30,6 +35,9 @@ actor FakeDeviceService: DeviceService {
     func setRunning(_ running: [RunningDevice]) { self.running = running }
     func setDevices(_ devices: [VirtualDevice]) { self.devices = devices }
     func setLaunchError(_ error: ServiceError?) { launchError = error }
+    func setPlan(_ plan: SetupPlan) { self.plan = plan }
+    func setStepExitCodes(_ codes: [SetupStep.Kind: Int32]) { stepExitCodes = codes }
+    func setStartFailures(_ kinds: Set<SetupStep.Kind>) { startFailures = kinds }
 
     func snapshot(locations: Locations) async -> DeviceSnapshot {
         snapshotRequests.append(locations)
@@ -47,6 +55,15 @@ actor FakeDeviceService: DeviceService {
     func stop(_ device: VirtualDevice) async throws {
         stops.append(device.id)
         running.removeAll { $0.name == device.id }
+    }
+
+    func setupPlan(locations: Locations) async -> SetupPlan { plan }
+
+    func runSetupStep(_ step: SetupStep, locations: Locations) async throws -> SetupStepResult {
+        ranSteps.append(step.kind)
+        if startFailures.contains(step.kind) { throw ServiceError("Cannot execute brew: file not found.") }
+        let code = stepExitCodes[step.kind] ?? 0
+        return SetupStepResult(exitCode: code, output: code == 0 ? "ok" : "line1\nline2\nError: something broke")
     }
 }
 

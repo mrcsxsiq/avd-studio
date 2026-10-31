@@ -82,6 +82,14 @@ internal fun DoctorReport.toDto() =
     )
 
 internal object Output {
+    fun heading(text: String): String = TextStyles.bold(text)
+
+    fun dim(text: String): String = TextColors.gray(text)
+
+    fun success(text: String): String = TextColors.green(text)
+
+    fun failure(text: String): String = TextColors.red(text)
+
     val json =
         Json {
             prettyPrint = true
