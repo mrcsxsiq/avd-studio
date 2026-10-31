@@ -1,0 +1,98 @@
+name: Create release
+
+# Prepares and publishes a release from the Actions tab (Actions -> Create release -> Run workflow):
+#   1. checks the version, that the changelog has something to release and that CI is green on main
+#   2. runs scripts/release.sh (VERSION + CHANGELOG.md), commits it to main and creates the annotated tag
+#   3. calls release.yml, which builds, packages, publishes the GitHub release and updates Homebrew
+# Nothing is pushed if a check fails.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without the v (e.g. 0.1.0, 0.2.0, 1.0.0-rc.1)"
+        required: true
+        type: string
+      dry_run:
+        description: "Only check and show the release notes; change nothing"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: create-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  tag:
+    name: Prepare and tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the release commit and the tag
+      actions: read # read the CI result of the commit being released
+    outputs:
+      tag: ${{ steps.prepare.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Check the version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$'
+          [[ "$VERSION" =~ $semver ]] || { echo "::error::'$VERSION' is not a valid semantic version (e.g. 0.2.0 or 1.0.0-rc.1)"; exit 1; }
+          if git rev-parse -q --verify "refs/tags/v$VERSION" > /dev/null; then
+            echo "::error::Tag v$VERSION already exists"; exit 1
+          fi
+
+      - name: CI must be green on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          conclusion="$(gh run list --workflow ci.yml --commit "$sha" --json conclusion --jq '[.[] | select(.conclusion == "success")] | length')"
+          if [ "$conclusion" -eq 0 ]; then
+            echo "::error::No successful CI run for ${sha:0:7} on main. Wait for CI (or fix it) and run this again."
+            exit 1
+          fi
+          echo "CI is green for ${sha:0:7}"
+
+      - name: Prepare VERSION and CHANGELOG.md
+        id: prepare
+        env:
+          VERSION: ${{ inputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN" = "true" ]; then
+            ./scripts/release.sh "$VERSION" --dry-run
+            echo "Dry run: nothing was changed."
+            exit 0
+          fi
+          ./scripts/release.sh "$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add VERSION CHANGELOG.md
+          git commit -m "chore(release): $VERSION"
+          git tag -a "v$VERSION" -m "AVD Studio $VERSION"
+          # Atomic: either both the commit and the tag land, or neither does.
+          git push --atomic origin main "v$VERSION"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Build and publish
+    needs: tag
+    if: ${{ !inputs.dry_run }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      ref: ${{ needs.tag.outputs.tag }}
+    secrets: inherit

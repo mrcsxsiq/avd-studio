@@ -28,7 +28,7 @@ cask "avd-studio" do
   caveats <<~EOS
     AVD Studio manages the Android SDK tools that are already on your Mac; it does not install them.
     If you have none yet, run:  avdstudio doctor
-    (install the command-line tool with: brew install avdstudio)
+    (the command-line tool: brew install mrcsxsiq/avd-studio/avdstudio)
 
     Until releases are notarized, macOS may refuse to open the app the first time.
     Right-click the app and choose Open, or run:

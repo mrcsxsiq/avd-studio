@@ -1,9 +1,18 @@
 name: Release
 
-# Push a tag like v0.2.0 (see docs/RELEASING.md). `scripts/release.sh` prepares VERSION and CHANGELOG.md.
+# Two ways in:
+#   - a human pushes a tag like v0.2.0 (see docs/RELEASING.md);
+#   - the "Create release" workflow (tag.yml) creates the tag and calls this one. A tag pushed with the default
+#     GITHUB_TOKEN does not trigger other workflows, which is why it calls this workflow directly.
 on:
   push:
     tags: ["v*"]
+  workflow_call:
+    inputs:
+      ref:
+        description: Tag to build, e.g. v0.2.0
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -18,11 +27,15 @@ jobs:
       HAS_SIGNING_CERT: ${{ secrets.MACOS_CERTIFICATE != '' }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: The tag must match VERSION
+        env:
+          TAG: ${{ inputs.ref || github.ref_name }}
         run: |
           version="$(tr -d '[:space:]' < VERSION)"
-          [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME does not match VERSION $version" >&2; exit 1; }
+          [ "v$version" = "$TAG" ] || { echo "Tag $TAG does not match VERSION $version" >&2; exit 1; }
           echo "VERSION=$version" >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v6
@@ -79,7 +92,7 @@ jobs:
           [ -s release-notes.md ] || { echo "CHANGELOG.md has no section for $VERSION" >&2; exit 1; }
           prerelease=""
           case "$VERSION" in *-*) prerelease="--prerelease" ;; esac
-          gh release create "$GITHUB_REF_NAME" dist/* --title "AVD Studio $VERSION" --notes-file release-notes.md $prerelease
+          gh release create "v$VERSION" dist/* --title "AVD Studio $VERSION" --notes-file release-notes.md --verify-tag $prerelease
 
       - name: Point Homebrew at the new release
         run: |

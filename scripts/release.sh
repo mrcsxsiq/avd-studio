@@ -14,8 +14,12 @@ semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$'
 [[ "$version" =~ $semver ]] || { echo "'$version' is not a valid semantic version (e.g. 0.2.0 or 1.0.0-rc.1)" >&2; exit 1; }
 
 current="$(tr -d '[:space:]' < VERSION)"
-[[ "$version" != "$current" ]] || { echo "VERSION is already $version" >&2; exit 1; }
-grep -q "^## \[$version\]" CHANGELOG.md && { echo "CHANGELOG.md already has a section for $version" >&2; exit 1; }
+# The very first release is allowed to keep the VERSION the project started with; any later one must change it.
+grep -q "^## \[$version\]" CHANGELOG.md && { echo "CHANGELOG.md already has a section for $version (already released?)" >&2; exit 1; }
+if [[ "$version" == "$current" ]] && grep -qE '^## \[[0-9]' CHANGELOG.md; then
+  echo "VERSION is already $version and CHANGELOG.md has released versions: pick the next version" >&2
+  exit 1
+fi
 [[ -n "$(scripts/changelog-section.sh Unreleased)" ]] || { echo "The Unreleased section of CHANGELOG.md is empty; nothing to release" >&2; exit 1; }
 
 today="$(date +%Y-%m-%d)"
