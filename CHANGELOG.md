@@ -14,6 +14,18 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
 
 ## [Unreleased]
 
+### Added
+
+- **Install from GitHub** in the update window and Settings > Updates, offered when Homebrew could not finish the
+  upgrade (its tap is updated a little after a release, or `brew` failed). It downloads and verifies the DMG, replaces
+  the app and reopens it, without asking Homebrew again.
+
+### Fixed
+
+- Installing an update no longer fails when macOS answers "Resource temporarily unavailable" while mounting the
+  DMG (the disk image service is busy): it tries again a couple of times. A file that is not a disk image still
+  fails at once.
+
 ## [0.4.0] - 2026-11-01
 
 ### Added

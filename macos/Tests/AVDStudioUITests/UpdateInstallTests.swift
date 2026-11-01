@@ -105,6 +105,62 @@ struct UpdateInstallTests {
         #expect(h.quitter.quits == 0)
     }
 
+    @Test func whenHomebrewCannotFinishTheUserCanInstallFromGitHubInstead() async {
+        let new = release("0.3.0")
+        let h = await makeHarness(new, homebrew: true)
+        publishChecksum(h, for: new)
+        h.installer.setVersionAfterBrew(AppVersion("0.2.0"))  // the tap is still on the old build
+        await h.model.performInstall()
+        #expect(h.model.canInstallFromGitHubInstead, "no installer was downloaded yet, and the release has one")
+        #expect(h.installer.installs.isEmpty)
+
+        await h.model.performInstall(usingHomebrew: false)
+
+        #expect(h.installer.brewUpgrades == 1, "Homebrew is not asked again")
+        #expect(h.installer.installs.count == 1)
+        #expect(h.installer.installs.first?.version == AppVersion("0.3.0"))
+        #expect(h.installer.relaunches == [app])
+        #expect(h.model.state == .installed(new))
+    }
+
+    @Test func installFromGitHubStartsTheSameWayThroughThePublicAction() async {
+        let new = release("0.3.0")
+        let h = await makeHarness(new, homebrew: true)
+        publishChecksum(h, for: new)
+        h.installer.failBrew(.homebrewFailed("nope"))
+        await h.model.performInstall()
+
+        h.model.installFromGitHub()
+        let done = await eventually { h.model.state == .installed(new) }
+
+        #expect(done)
+        #expect(h.installer.installs.count == 1)
+    }
+
+    @Test func theGitHubFallbackIsOfferedOnlyWhenItCanWork() async {
+        // No installer published for this release.
+        let bare = release("0.3.0", installer: false)
+        let withoutDmg = await makeHarness(bare, homebrew: true)
+        withoutDmg.installer.failBrew(.homebrewFailed("nope"))
+        await withoutDmg.model.performInstall()
+        #expect(!withoutDmg.model.canInstallFromGitHubInstead, "there is nothing on GitHub to install")
+
+        // The installer was already downloaded: the user has it to open, no need to download it again.
+        let new = release("0.3.0")
+        let downloaded = await makeHarness(new)
+        publishChecksum(downloaded, for: new)
+        downloaded.installer.failInstall(.notWritable("/Applications"))
+        await downloaded.model.performInstall()
+        #expect(downloaded.model.downloadedFile != nil)
+        #expect(!downloaded.model.canInstallFromGitHubInstead)
+
+        // Nothing failed yet, or there is no installer to do it.
+        let fresh = await makeHarness(new, homebrew: true)
+        #expect(!fresh.model.canInstallFromGitHubInstead)
+        let preview = await makeHarness(new, withInstaller: false)
+        #expect(!preview.model.canInstallFromGitHubInstead)
+    }
+
     // MARK: GitHub
 
     @Test func withoutHomebrewItDownloadsChecksAndInstallsTheNewApp() async {
