@@ -215,8 +215,14 @@ public class AvdStudioCore internal constructor(
         avdHomeOverride: String? = null,
     ) {
         if (runningEmulators().any { it.avdName == avdName }) throw CommandException("$avdName is running. Stop it first.")
-        val (avdManager, environment) = avdManagerOrThrow(sdkPathOverride, avdHomeOverride)
-        avdCreator.delete(avdName, avdManager, avdHome(avdHomeOverride), environment)
+        // Without avdmanager or Java the device can still be deleted: it is just a .ini and a folder.
+        val tool =
+            try {
+                avdManagerOrThrow(sdkPathOverride, avdHomeOverride)
+            } catch (_: CommandException) {
+                null
+            }
+        avdCreator.delete(avdName, tool?.first, avdHome(avdHomeOverride), tool?.second.orEmpty())
     }
 
     // MARK: Downloading and removing system images

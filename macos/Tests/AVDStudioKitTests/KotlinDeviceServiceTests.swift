@@ -437,4 +437,38 @@ struct KotlinDeviceServiceTests {
 
         #expect(during == 3_000)
     }
+
+    @Test func deletesADeviceEvenWithoutJavaAndEvenWhenItsImageIsMissing() async throws {
+        try installSDK(at: "Library/Android/sdk")  // no Java anywhere: avdmanager cannot run
+        // A name nobody else uses: the core asks the real `ps` which emulators run, and a real one with the same name
+        // (a developer's own device) would make it refuse.
+        let name = "Broken_\(UUID().uuidString.replacingOccurrences(of: "-", with: "_"))"
+        try createAVD(
+            name, target: "android-33",
+            config: "hw.device.name=pixel_2\nimage.sysdir.1=system-images/android-33/google_apis_playstore/arm64-v8a/\n")
+        try write(".android/avd/\(name).avd/userdata.img", "x")
+        let service = makeService()
+        let broken = try #require(await service.snapshot(locations: Locations()).devices.first)
+        #expect(broken.id == name)
+        #expect(broken.status == .missingSystemImage)
+
+        try await service.deleteDevice(broken, locations: Locations())
+
+        #expect(await service.snapshot(locations: Locations()).devices.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: home.appendingPathComponent(".android/avd/\(name).avd").path))
+    }
+
+    @Test func neverDeletesAFolderThatIsNotAnAvdEvenIfTheIniSaysSo() async throws {
+        try installSDK(at: "Library/Android/sdk")
+        try write("Documents/thesis.txt", "precious")
+        let name = "Stray_\(UUID().uuidString.replacingOccurrences(of: "-", with: "_"))"
+        try write(".android/avd/\(name).ini", "path=\(home.path)/Documents\ntarget=android-33\n")
+        try write(".android/avd/\(name).avd/config.ini", "hw.device.name=pixel_2\n")
+        let service = makeService()
+        let stray = VirtualDevice(id: name)
+
+        await #expect(throws: ServiceError.self) { try await service.deleteDevice(stray, locations: Locations()) }
+
+        #expect(FileManager.default.fileExists(atPath: home.appendingPathComponent("Documents/thesis.txt").path))
+    }
 }
