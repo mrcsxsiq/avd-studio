@@ -14,6 +14,8 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-01
+
 ### Added
 
 - An About page with the version, a **Star on GitHub** button that opens the repository (the app has no GitHub
@@ -95,5 +97,6 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
   `doctor` support `--json`, and `--sdk-path` / `--avd-home` (or `AVDSTUDIO_SDK_PATH` / `AVDSTUDIO_AVD_HOME`)
   override auto-detection.
 
-[Unreleased]: https://github.com/mrcsxsiq/avd-studio/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/mrcsxsiq/avd-studio/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/mrcsxsiq/avd-studio/releases/tag/v0.2.0
 [0.1.0]: https://github.com/mrcsxsiq/avd-studio/releases/tag/v0.1.0
