@@ -21,11 +21,13 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
   device now travels with the button.
 - **Delete…** from the menu bar popover showed no confirmation when the main window was closed (always the case with
   the Dock icon hidden). It now brings up the window with the question.
-- Deleting a device no longer needs Java or the command-line tools: when `avdmanager` cannot run, its files are
-  removed directly, which is all it does. This also covers devices whose system image is missing.
-- A device whose `.ini` pointed at a folder that is not an `.avd` folder could make `avdmanager delete avd` remove
-  that folder (checked against the real tool). AVD Studio now refuses before running anything, and names that
-  would leave the AVD folder (`../x`) are refused too.
+- Deleting a device no longer needs Java or the command-line tools, and no longer runs `avdmanager delete avd`: the
+  `.ini` and the device's folder are removed directly, which is all that command does. This also covers devices whose
+  system image is missing and devices kept in another folder.
+- `avdmanager delete avd` removes whatever `path=` or `path.rel=` in the device's `.ini` points at, with no check, so a
+  stale or edited `.ini` could make it delete an unrelated folder (reproduced with the real tool). AVD Studio now
+  resolves the folder the way the device list does and removes it only if it is the device's default folder or holds
+  an AVD's `config.ini`; the AVD home itself, folders above it and names such as `../x` are refused.
 
 ## [0.4.0] - 2026-11-01
 

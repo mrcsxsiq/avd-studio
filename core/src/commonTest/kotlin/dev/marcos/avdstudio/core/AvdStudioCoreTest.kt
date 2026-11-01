@@ -378,87 +378,133 @@ class AvdStudioCoreTest {
     }
 
     @Test
-    fun deleteRunsAvdManagerAndRemovesLeftoverFiles() {
+    fun deleteRemovesTheIniAndTheFolderWithoutStartingAvdManager() {
         val core = readyForAvdManager()
         fs.touch("$avdHome/Old.ini", "path=$avdHome/Old.avd")
         fs.touch("$avdHome/Old.avd/config.ini", "")
         fs.touch("$avdHome/Old.avd/userdata.img", "x")
-        // avdmanager refuses to load devices with a missing image; we clean up anyway.
-        runner.onRun = { CommandResult(1, "", "Error: There is no Android Virtual Device named 'Old'.") }
 
         core.deleteAvd("Old")
 
-        assertEquals(listOf("delete", "avd", "--name", "Old"), runner.executed.single { it.executable == avdManager }.arguments)
         assertFalse(fs.exists("$avdHome/Old.ini".toPath()))
         assertFalse(fs.exists("$avdHome/Old.avd".toPath()))
+        // avdmanager would delete whatever path= or path.rel= says, unchecked, so it is never asked to.
+        assertTrue(runner.executed.none { it.executable == avdManager }, "avdmanager never ran")
     }
 
     @Test
-    fun deleteWorksWithoutJavaByRemovingTheFiles() {
-        fs.installSdk(sdk) // command-line tools but no Java: avdmanager cannot run
+    fun deleteWorksWithoutJavaAndWithoutTheCommandLineTools() {
         fs.touch("$avdHome/Old.ini", "path=$avdHome/Old.avd")
         fs.touch("$avdHome/Old.avd/config.ini", "")
-        fs.touch("$avdHome/Old.avd/userdata.img", "x")
+        fs.touch("$avdHome/NoImage.ini", "path=$avdHome/NoImage.avd")
+        fs.touch("$avdHome/NoImage.avd/config.ini", "image.sysdir.1=system-images/android-99/x/arm64-v8a/")
 
         core().deleteAvd("Old")
-
-        assertFalse(fs.exists("$avdHome/Old.ini".toPath()))
-        assertFalse(fs.exists("$avdHome/Old.avd".toPath()))
-        assertTrue(runner.executed.none { it.executable == avdManager }, "avdmanager was not needed")
-    }
-
-    @Test
-    fun deleteWorksWithoutTheCommandLineToolsAtAll() {
-        fs.touch("$avdHome/Old.ini", "path=$avdHome/Old.avd")
-        fs.touch("$avdHome/Old.avd/config.ini", "")
-
-        core().deleteAvd("Old")
+        core().deleteAvd("NoImage")
 
         assertFalse(fs.exists("$avdHome/Old.avd".toPath()))
+        assertFalse(fs.exists("$avdHome/NoImage.avd".toPath()), "a device whose system image is missing is deleted too")
     }
 
     @Test
     fun deleteSaysSoWhenThereIsNoSuchDevice() {
-        fs.installSdk(sdk)
-
         val error = assertFailsWith<CommandException> { core().deleteAvd("Ghost") }
 
         assertTrue(error.message.orEmpty().contains("No device called Ghost"), error.message)
     }
 
     @Test
-    fun deleteOnlyRemovesAnAvdFolderNeverWhateverThePathSays() {
-        val core = readyForAvdManager()
+    fun deleteRemovesAFolderLeftWithoutItsIni() {
+        fs.touch("$avdHome/Orphan.avd/config.ini", "")
+
+        core().deleteAvd("Orphan")
+
+        assertFalse(fs.exists("$avdHome/Orphan.avd".toPath()))
+    }
+
+    @Test
+    fun deleteRemovesADeviceKeptInAnotherFolder() {
+        // avdmanager create avd -p ~/myavds/Custom writes an absolute path= and a folder with a config.ini.
+        fs.touch("$avdHome/Custom.ini", "path=$HOME/myavds/Custom")
+        fs.touch("$HOME/myavds/Custom/config.ini", "")
+        fs.touch("$HOME/myavds/Custom/userdata.img", "x")
+
+        core().deleteAvd("Custom")
+
+        assertFalse(fs.exists("$HOME/myavds/Custom".toPath()))
+        assertFalse(fs.exists("$avdHome/Custom.ini".toPath()))
+    }
+
+    @Test
+    fun deleteFollowsPathRelLikeTheDeviceList() {
+        // path.rel is relative to the parent of the AVD home ($HOME/.android), and path= may be stale.
+        fs.touch("$avdHome/Moved.ini", "path=/gone/Moved.avd\npath.rel=elsewhere/Moved")
+        fs.touch("$HOME/.android/elsewhere/Moved/config.ini", "")
+
+        core().deleteAvd("Moved")
+
+        assertFalse(fs.exists("$HOME/.android/elsewhere/Moved".toPath()))
+    }
+
+    @Test
+    fun deleteRefusesAPathThatIsNotAnAvdFolderWhateverTheIniSays() {
         fs.touch("$avdHome/Bad.ini", "path=$HOME/Documents")
         fs.touch("$HOME/Documents/thesis.txt", "precious")
 
-        val error = assertFailsWith<CommandException> { core.deleteAvd("Bad") }
+        val error = assertFailsWith<CommandException> { core().deleteAvd("Bad") }
 
-        assertTrue(error.message.orEmpty().contains("not an .avd folder"), error.message)
+        assertTrue(error.message.orEmpty().contains("does not look like an AVD folder"), error.message)
         assertTrue(fs.exists("$HOME/Documents/thesis.txt".toPath()), "the folder the path pointed at is untouched")
         assertTrue(fs.exists("$avdHome/Bad.ini".toPath()), "nothing was removed")
-        // avdmanager itself would delete whatever the .ini says, so it must not even be started.
-        assertTrue(runner.executed.none { it.executable == avdManager }, "avdmanager never ran")
     }
 
     @Test
-    fun deleteChecksThePathBeforeAvdManagerEvenWhenItIsAvailableAndSucceeds() {
-        val core = readyForAvdManager()
-        fs.touch("$avdHome/Evil.ini", "path=$avdHome")
-        runner.onRun = { CommandResult(0, "AVD 'Evil' deleted.", "") }
+    fun deleteRefusesPathRelPointingOutsideToo() {
+        // Reproduced with the real avdmanager: path= missing or stale and path.rel=../Documents deleted Documents.
+        fs.touch("$avdHome/Rel.ini", "path=/nonexistent/Rel.avd\npath.rel=../Documents")
+        // $HOME/.android/avd is the AVD home, so ../Documents from its parent ($HOME/.android) is $HOME/Documents.
+        fs.touch("$HOME/Documents/thesis.txt", "precious")
+        fs.touch("$avdHome/OnlyRel.ini", "path.rel=../Documents")
 
-        assertFailsWith<CommandException> { core.deleteAvd("Evil") }
+        for (name in listOf("Rel", "OnlyRel")) {
+            assertFailsWith<CommandException>(name) { core().deleteAvd(name) }
+        }
 
-        assertTrue(runner.executed.none { it.executable == avdManager })
+        assertTrue(fs.exists("$HOME/Documents/thesis.txt".toPath()))
+        assertTrue(fs.exists("$avdHome/Rel.ini".toPath()) && fs.exists("$avdHome/OnlyRel.ini".toPath()), "nothing was removed")
     }
 
     @Test
-    fun deleteRefusesNamesThatLeaveTheAvdFolder() {
+    fun aFolderCalledAvdIsNotEnoughToBeDeleted() {
+        fs.touch("$avdHome/Sneaky.ini", "path=$HOME/Documents/stuff.avd")
+        fs.touch("$HOME/Documents/stuff.avd/notes.txt", "mine")
+
+        assertFailsWith<CommandException> { core().deleteAvd("Sneaky") }
+
+        assertTrue(fs.exists("$HOME/Documents/stuff.avd/notes.txt".toPath()))
+    }
+
+    @Test
+    fun deleteNeverRemovesTheAvdHomeOrAFolderAboveIt() {
+        // Even with a config.ini inside, these are not one device's folder.
+        fs.touch("$avdHome/Home.ini", "path=$avdHome")
+        fs.touch("$avdHome/config.ini", "")
+        fs.touch("$avdHome/Above.ini", "path=$HOME/.android")
+        fs.touch("$HOME/.android/config.ini", "")
+
+        for (name in listOf("Home", "Above")) assertFailsWith<CommandException>(name) { core().deleteAvd(name) }
+
+        assertTrue(fs.exists("$avdHome/Home.ini".toPath()) && fs.exists("$avdHome/Above.ini".toPath()))
+    }
+
+    @Test
+    fun deleteRefusesNamesThatAreNotDeviceNames() {
         fs.touch("$HOME/outside.ini", "path=$HOME/outside.avd")
         fs.touch("$HOME/outside.avd/config.ini", "")
 
-        for (name in listOf("../../outside", "a/b", "..", "")) {
-            assertFailsWith<CommandException>("\"$name\"") { core().deleteAvd(name) }
+        for (name in listOf("../../outside", "a/b", "a\\b", "..", "", "  ")) {
+            val error = assertFailsWith<CommandException>("\"$name\"") { core().deleteAvd(name) }
+            assertEquals("\"$name\" is not a device name.", error.message, "the name guard itself answers, not a later lookup")
         }
 
         assertTrue(fs.exists("$HOME/outside.avd/config.ini".toPath()))

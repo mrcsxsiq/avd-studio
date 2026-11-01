@@ -97,47 +97,48 @@ internal class AvdCreator(
     }
 
     /**
-     * Deletes the device. With [avdManager] it asks `avdmanager` first; without it (no Java, no command-line tools)
-     * the files are removed directly, which is all `avdmanager delete avd` does anyway.
+     * Deletes the device: its `.ini` and its folder. That is all `avdmanager delete avd` does, but avdmanager removes
+     * whatever `path=` or `path.rel=` in the `.ini` points at, with no check: a stale or edited `.ini` made it delete an
+     * unrelated folder (reproduced with the real tool). Doing it here lets us look first, and needs neither Java nor
+     * the command-line tools.
      */
     fun delete(
         name: String,
-        avdManager: String?,
         avdHome: String,
-        environment: Map<String, String>,
     ) {
         if (name.isBlank() || name == ".." || name.contains('/') || name.contains('\\')) {
             throw CommandException("\"$name\" is not a device name.")
         }
         val home = avdHome.toPath()
         val ini = home / "$name.ini"
-        // Check before anything runs: `avdmanager delete avd` removes whatever `path=` in the .ini points at, so a
-        // stale or hand-edited file could make it delete an arbitrary folder.
-        if (fileSystem.exists(ini)) requireAvdFolder(resolveDirectory(home, name), ini)
-        if (avdManager != null) {
-            val result = runner.run(Command(avdManager, listOf("delete", "avd", "--name", name), environment))
-            if ((result.exitCode != 0 || hasError(result.standardOutput + result.standardError)) && !fileSystem.exists(ini)) {
-                failIfErrored(result.exitCode, result.standardOutput + "\n" + result.standardError, "delete $name")
-            }
-        } else if (!fileSystem.exists(ini) && !fileSystem.exists(home / "$name.avd")) {
+        val directory = resolveDirectory(home, name)
+        if (!fileSystem.exists(ini) && !fileSystem.exists(directory)) {
             throw CommandException("No device called $name was found in $avdHome.")
         }
-        // avdmanager refuses devices it cannot load (missing system image); remove the files ourselves then.
-        if (fileSystem.exists(ini)) {
-            val directory = resolveDirectory(home, name)
-            requireAvdFolder(directory, ini)
-            fileSystem.delete(ini)
-            if (fileSystem.exists(directory)) fileSystem.deleteRecursively(directory)
-        }
+        if (fileSystem.exists(directory)) requireAvdFolder(directory, home, name, ini)
+        if (fileSystem.exists(ini)) fileSystem.delete(ini)
+        if (fileSystem.exists(directory)) fileSystem.deleteRecursively(directory)
     }
 
-    /** The `path=` in a .ini can point anywhere. Only ever remove what is an AVD folder (`<name>.avd`). */
+    /**
+     * Only ever remove an AVD's own folder. The `.ini` can point anywhere, so a folder is accepted when it is the
+     * default location (`<home>/<name>.avd`, even if its `config.ini` is gone) or when it holds a `config.ini` (an AVD
+     * kept elsewhere with `avdmanager create avd -p`). The AVD home itself, or a folder above it, never is.
+     */
     private fun requireAvdFolder(
         directory: Path,
+        home: Path,
+        name: String,
         ini: Path,
     ) {
-        if (!directory.name.endsWith(".avd")) {
-            throw CommandException("Not deleting $directory: it is not an .avd folder. Remove $ini by hand if it is stale.")
+        val containsHome = home == directory || home.toString().startsWith(directory.toString().trimEnd('/') + "/")
+        val isDefaultLocation = directory == home / "$name.avd"
+        val looksLikeAnAvd = fileSystem.exists(directory / "config.ini")
+        if (containsHome || !(isDefaultLocation || looksLikeAnAvd)) {
+            throw CommandException(
+                "Not deleting $directory: it does not look like an AVD folder (no config.ini). " +
+                    "Remove $ini by hand if it is stale.",
+            )
         }
     }
 
@@ -161,12 +162,23 @@ internal class AvdCreator(
 
     private fun hasError(output: String): Boolean = output.lineSequence().any { it.trimStart().startsWith("Error:") }
 
+    /**
+     * The folder of device [name], resolved like the device list does: `path` (absolute), then `path.rel` (relative to
+     * the parent of the AVD home), then `<home>/<name>.avd`. The first that exists wins; when none does, the default.
+     */
     private fun resolveDirectory(
         home: Path,
         name: String,
     ): Path {
         val pointer = runCatching { IniParser.parse(fileSystem.read(home / "$name.ini") { readUtf8() }) }.getOrDefault(emptyMap())
-        return pointer["path"]?.toPath()?.takeIf { fileSystem.exists(it) } ?: (home / "$name.avd")
+        val default = home / "$name.avd"
+        val candidates =
+            listOfNotNull(
+                pointer["path"]?.takeIf { it.isNotBlank() }?.toPath(normalize = true),
+                pointer["path.rel"]?.takeIf { it.isNotBlank() }?.let { ((home.parent ?: home) / it).normalized() },
+                default,
+            )
+        return candidates.firstOrNull { fileSystem.metadataOrNull(it)?.isDirectory == true } ?: default
     }
 
     private fun patchConfig(
