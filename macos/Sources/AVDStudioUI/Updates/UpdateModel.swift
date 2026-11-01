@@ -232,7 +232,21 @@ public final class UpdateModel {
         installTask = Task { [weak self] in await self?.performInstall() }
     }
 
-    public func performInstall() async {
+    /// Installs from GitHub even when Homebrew manages the app: the way out when Homebrew could not finish (its tap
+    /// is updated a little after a release, or `brew` failed). The DMG is downloaded, verified and swapped in, and
+    /// if that fails the verified DMG is left for the user.
+    public func installFromGitHub() {
+        installTask = Task { [weak self] in await self?.performInstall(usingHomebrew: false) }
+    }
+
+    /// True after an install that failed before any installer was downloaded (Homebrew), when the release has a DMG
+    /// to fall back to.
+    public var canInstallFromGitHubInstead: Bool {
+        guard installer != nil, case .installFailed(let release, _, let file) = state else { return false }
+        return release.asset != nil && file == nil
+    }
+
+    public func performInstall(usingHomebrew: Bool = true) async {
         let release: AppRelease
         switch state {
         case .available(let found), .installFailed(let found, _, _), .downloaded(let found, _, _): release = found
@@ -242,7 +256,7 @@ public final class UpdateModel {
             if case .available = state { await downloadLatest() }
             return
         }
-        if await installer.canUseHomebrew() {
+        if usingHomebrew, await installer.canUseHomebrew() {
             await installWithHomebrew(release, using: installer)
         } else {
             await installFromGitHub(release, using: installer)

@@ -214,6 +214,16 @@ struct SystemUpdateInstallerTests {
         #expect(folder == applications.path)
     }
 
+    // MARK: Mounting
+
+    @Test func aBusyDiskImageServiceIsRetriedButABrokenImageIsNot() {
+        #expect(SystemUpdateInstaller.isTransientMountFailure("hdiutil: attach failed - Resource temporarily unavailable"))
+        #expect(SystemUpdateInstaller.isTransientMountFailure("hdiutil: attach failed - Resource busy"))
+        #expect(!SystemUpdateInstaller.isTransientMountFailure("hdiutil: attach failed - no mountable file systems"))
+        #expect(!SystemUpdateInstaller.isTransientMountFailure("hdiutil: attach failed - image not recognized"))
+        #expect(!SystemUpdateInstaller.isTransientMountFailure(""))
+    }
+
     // MARK: Reading the installed version
 
     @Test func theInstalledVersionIsReadFromTheFileSoAnUpgradeIsSeen() throws {

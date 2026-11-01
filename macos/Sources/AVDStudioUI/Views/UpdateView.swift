@@ -259,6 +259,9 @@ public struct UpdateView: View {
                     Button("Show in Finder") { model.revealDownload() }
                     Button("Open Installer") { model.openInstaller() }
                 }
+                if model.canInstallFromGitHubInstead {
+                    Button("Install from GitHub") { model.installFromGitHub() }
+                }
                 if model.installSource == .homebrew {
                     Button("Copy Brew Command") { Clipboard.copy(InstallSource.brewUpgradeCommand) }
                 }
