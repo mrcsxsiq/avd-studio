@@ -87,6 +87,7 @@ tolerance.
    strict concurrency, `@Observable` models, Apple's terminology in UI strings (Settings, menu bar, Finder).
 3. Commit messages follow [Conventional Commits](https://www.conventionalcommits.org): `feat(core): …`,
    `fix(cli): …`, `docs: …`, `ci: …`, `build(deps): …`. Explain *why* in the body when it is not obvious.
+   Sign every commit in the pull request with a key GitHub verifies; the **Signed commits** CI check enforces this.
 4. Update `CHANGELOG.md` under `## [Unreleased]` for anything a user can notice, `LICENSES.md` when a dependency
    changes, and the README when a command or setting changes.
 5. Fill in the PR template: what, why, how you tested it (real output), and screenshots for UI changes.

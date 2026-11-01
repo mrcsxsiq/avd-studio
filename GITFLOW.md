@@ -15,6 +15,10 @@ AVD Studio uses Gitflow with `main` as the production branch and `develop` as th
 Use the repository's Conventional Commit format, for example `feat(macos): improve update status` or
 `fix(core): handle missing SDK metadata`.
 
+Every commit in a pull request must have a signature GitHub verifies. The **Signed commits** CI check inspects each
+commit on the PR; unsigned or unverifiable commits fail the check. Configure GPG or SSH commit signing with the key
+registered on your GitHub account before pushing.
+
 ## Normal work
 
 1. Update `develop` and branch from it: `git switch develop && git pull && git switch -c feature/<short-name>`.
