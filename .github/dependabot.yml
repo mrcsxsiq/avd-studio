@@ -1,9 +1,11 @@
 # https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 version: 2
+# Update pull requests target `develop`, like every other change (see GITFLOW.md).
 updates:
   # Kotlin, Okio, Clikt, kotlinx.serialization, ktlint and the Gradle wrapper (gradle/libs.versions.toml).
   - package-ecosystem: gradle
     directory: /
+    target-branch: develop
     schedule:
       interval: weekly
       day: monday
@@ -21,6 +23,7 @@ updates:
   # swift-snapshot-testing and friends (macos/Package.swift + Package.resolved).
   - package-ecosystem: swift
     directory: /macos
+    target-branch: develop
     schedule:
       interval: weekly
       day: monday
@@ -31,6 +34,7 @@ updates:
   # The versions pinned in .github/workflows.
   - package-ecosystem: github-actions
     directory: /
+    target-branch: develop
     schedule:
       interval: weekly
       day: monday

@@ -12,6 +12,7 @@
 
 ## Checklist
 
+- [ ] The base branch follows GITFLOW.md (`develop` for `feature/*`, `main` for `release/*` and `hotfix/*`)
 - [ ] Tests added or updated for the change (hermetic: no real SDK, Java or Homebrew needed)
 - [ ] `make lint` passes
 - [ ] `CHANGELOG.md` updated under Unreleased (if a user can notice the change)
