@@ -123,6 +123,19 @@ final class ScreenshotTests: SnapshotTestCase {
     }
 
     @MainActor
+    func testSettingsGeneralTabWithTheDockHidden() {
+        // The menu bar item is now the only way in, so its switch is locked on and the footer says why.
+        let defaults = UserDefaults.standard
+        defaults.set(false, forKey: AppSettings.showInDockKey)
+        defer { defaults.removeObject(forKey: AppSettings.showInDockKey) }
+        let model = SampleData.model()
+        let updates = SampleData.updateModel(state: .idle)
+        assertScreenshot(
+            of: GeneralSettingsTab(model: model).environment(updates), size: SettingsTab.general.size, named: "settings-general-no-dock",
+            schemes: [.light])
+    }
+
+    @MainActor
     func testSettingsAndroidTab() {
         let model = SampleData.model()
         model.setSetupPlanForPreview(SampleData.setupPlan)

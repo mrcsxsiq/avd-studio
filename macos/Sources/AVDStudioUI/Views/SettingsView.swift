@@ -3,6 +3,9 @@ import SwiftUI
 public enum AppSettings {
     /// `@AppStorage` key for the "show in menu bar" toggle.
     public static let showMenuBarItemKey = "showMenuBarItem"
+    /// `@AppStorage` key for the "show in the Dock" toggle. At least one of this and the menu bar toggle is always on
+    /// (see `AppPresence`).
+    public static let showInDockKey = "showInDock"
     /// `@AppStorage` key for the theme (`AppearanceMode.rawValue`).
     public static let appearanceKey = "appearance"
     /// `@AppStorage` key for the menu bar icon (`MenuBarIcon.rawValue`).
@@ -36,7 +39,7 @@ public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
     /// Window size of the tab (the Settings window resizes to the tab shown).
     var size: CGSize {
         switch self {
-        case .general: CGSize(width: 560, height: 660)
+        case .general: CGSize(width: 560, height: 760)
         case .android: CGSize(width: 560, height: 700)
         case .about: CGSize(width: 560, height: 470)
         }

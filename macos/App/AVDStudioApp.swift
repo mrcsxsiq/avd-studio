@@ -2,8 +2,30 @@ import AVDStudioKit
 import AVDStudioUI
 import SwiftUI
 
+/// Applies the "show in the Dock" preference as the app starts, before the first window appears. Without a Dock
+/// icon the app is an accessory that lives in the menu bar; `AppPresence` guarantees one of the two is on.
+final class PresenceDelegate: NSObject, NSApplicationDelegate {
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        AppPresence.repairStored()
+        AppPresence.stored().apply()
+    }
+}
+
+extension Scene {
+    /// With no Dock icon the app starts quietly in the menu bar instead of opening its window. Needs macOS 15; on
+    /// macOS 14 the window still opens at launch.
+    func opensWindowAtLaunch(_ opens: Bool) -> some Scene {
+        if #available(macOS 15, *) {
+            return defaultLaunchBehavior(opens ? .presented : .suppressed)
+        } else {
+            return self
+        }
+    }
+}
+
 @main
 struct AVDStudioApp: App {
+    @NSApplicationDelegateAdaptor(PresenceDelegate.self) private var delegate
     private let model: AppModel
     private let updates: UpdateModel
     @AppStorage(AppSettings.showMenuBarItemKey) private var showMenuBarItem = true
@@ -32,6 +54,7 @@ struct AVDStudioApp: App {
                 .environment(updates)
         }
         .defaultSize(width: 1040, height: 700)
+        .opensWindowAtLaunch(AppPresence.stored().showInDock)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("New Device…") { model.presentCreateDevice() }

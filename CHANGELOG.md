@@ -22,6 +22,10 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
   Settings.
 - The `avdstudio` command-line tool now ships inside the app (`AVD Studio.app/Contents/Helpers/avdstudio`), so
   one install gives you both.
+- **Show AVD Studio in the Dock** (Settings > General). Switch it off to keep the app only in the menu bar: it
+  then starts quietly, without opening its window (macOS 15 and later), and opens windows from the popover. Together with the existing
+  menu bar switch you can keep either one or both, but never neither: the last place that is on cannot be switched
+  off, and a stored "both off" is repaired to Dock-on when the app starts.
 
 ### Changed
 
