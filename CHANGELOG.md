@@ -14,6 +14,12 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
 
 ## [Unreleased]
 
+### Added
+
+- **Install from GitHub** in the update window and Settings > Updates, offered when Homebrew could not finish the
+  upgrade (its tap is updated a little after a release, or `brew` failed). It downloads and verifies the DMG, replaces
+  the app and reopens it, without asking Homebrew again.
+
 ### Fixed
 
 - **Delete** (and **Wipe Data and Start**) did nothing when confirmed. Closing the confirmation dialog cleared the
@@ -26,6 +32,9 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
 - A device whose `.ini` pointed at a folder that is not an `.avd` folder could make `avdmanager delete avd` remove
   that folder (checked against the real tool). AVD Studio now refuses before running anything, and names that
   would leave the AVD folder (`../x`) are refused too.
+- Installing an update no longer fails when macOS answers "Resource temporarily unavailable" while mounting the
+  DMG (the disk image service is busy): it tries again a couple of times. A file that is not a disk image still
+  fails at once.
 
 ## [0.4.0] - 2026-11-01
 
