@@ -18,10 +18,12 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
 
 - An About page with the version, a **Star on GitHub** button that opens the repository (the app has no GitHub
   account, so one click on Star there does it) and links to the website, changelog and license. Open it from the
-  app menu (About AVD Studio), from the menu bar popover (the ⓘ next to the gear) or from the new About tab in
+  app menu (About AVD Studio), from the menu bar popover (the ⓘ icon) or from the new About tab in
   Settings.
 - The `avdstudio` command-line tool now ships inside the app (`AVD Studio.app/Contents/Helpers/avdstudio`), so
   one install gives you both.
+- A **Check for Updates** icon in the menu bar popover. The icons there now run Settings, Check for Updates,
+  About and Quit, after Refresh.
 - **Show AVD Studio in the Dock** (Settings > General). Switch it off to keep the app only in the menu bar: it
   then starts quietly, without opening its window (macOS 15 and later), and opens windows from the popover. Together with the existing
   menu bar switch you can keep either one or both, but never neither: the last place that is on cannot be switched

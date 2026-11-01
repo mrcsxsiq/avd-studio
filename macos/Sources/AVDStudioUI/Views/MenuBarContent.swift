@@ -166,8 +166,9 @@ public struct MenuBarContent: View {
             .buttonStyle(.link)
             Spacer()
             iconButton("arrow.clockwise", label: "Refresh") { Task { await model.refresh() } }
-            iconButton("info.circle", label: "About AVD Studio") { showAbout() }
             iconButton("gearshape", label: "Settings") { showSettings() }
+            iconButton("arrow.down.circle", label: "Check for Updates") { showUpdates() }
+            iconButton("info.circle", label: "About AVD Studio") { showAbout() }
             iconButton("power", label: "Quit AVD Studio") { NSApp.terminate(nil) }
         }
         .padding(.horizontal, 14)
@@ -179,6 +180,13 @@ public struct MenuBarContent: View {
             .buttonStyle(.borderless)
             .help(label)
             .accessibilityLabel(label)
+    }
+
+    /// Opens the update window and looks for a release, unless one is already known (then it just shows it).
+    private func showUpdates() {
+        NSApp.activate(ignoringOtherApps: true)
+        openWindow(id: "updates")
+        if let updates, !updates.hasUpdate { Task { await updates.checkForUpdates() } }
     }
 
     private func showAbout() {

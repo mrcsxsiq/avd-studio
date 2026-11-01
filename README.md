@@ -157,7 +157,7 @@ Then run `avdstudio doctor` again to check.
 | --- | --- |
 | General | Theme (System, Light or Dark); where AVD Studio appears: the Dock, the menu bar or both (never neither, so you can always get back in), and one of ten menu bar icons; automatic update checks and Check for Updates… |
 | Android | The SDK folder (leave empty for auto-detection); the folder that holds the `.avd` files; Diagnostics (the same checks as `avdstudio doctor`) with Fix Automatically… |
-| About | The version, a **Star on GitHub** button and links to the website, changelog and license. Also reachable from the menu bar popover (ⓘ next to the gear) and the app menu. |
+| About | The version, a **Star on GitHub** button and links to the website, changelog and license. Also reachable from the menu bar popover (the ⓘ icon) and the app menu. |
 
 ## How it works
 
