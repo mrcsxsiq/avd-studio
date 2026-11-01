@@ -14,6 +14,8 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-01
+
 ### Added
 
 - **Install from GitHub** in the update window and Settings > Updates, offered when Homebrew could not finish the
@@ -167,7 +169,8 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
   `doctor` support `--json`, and `--sdk-path` / `--avd-home` (or `AVDSTUDIO_SDK_PATH` / `AVDSTUDIO_AVD_HOME`)
   override auto-detection.
 
-[Unreleased]: https://github.com/mrcsxsiq/avd-studio/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/mrcsxsiq/avd-studio/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/mrcsxsiq/avd-studio/releases/tag/v0.5.0
 [0.4.0]: https://github.com/mrcsxsiq/avd-studio/releases/tag/v0.4.0
 [0.3.0]: https://github.com/mrcsxsiq/avd-studio/releases/tag/v0.3.0
 [0.2.0]: https://github.com/mrcsxsiq/avd-studio/releases/tag/v0.2.0
