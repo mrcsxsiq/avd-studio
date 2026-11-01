@@ -22,6 +22,16 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
 
 ### Fixed
 
+- **Delete** (and **Wipe Data and Start**) did nothing when confirmed. Closing the confirmation dialog cleared the
+  device before the button's action ran, so the action found nothing to delete and returned without a word. The
+  device now travels with the button.
+- **Delete…** from the menu bar popover showed no confirmation when the main window was closed (always the case with
+  the Dock icon hidden). It now brings up the window with the question.
+- Deleting a device no longer needs Java or the command-line tools: when `avdmanager` cannot run, its files are
+  removed directly, which is all it does. This also covers devices whose system image is missing.
+- A device whose `.ini` pointed at a folder that is not an `.avd` folder could make `avdmanager delete avd` remove
+  that folder (checked against the real tool). AVD Studio now refuses before running anything, and names that
+  would leave the AVD folder (`../x`) are refused too.
 - Installing an update no longer fails when macOS answers "Resource temporarily unavailable" while mounting the
   DMG (the disk image service is busy): it tries again a couple of times. A file that is not a disk image still
   fails at once.

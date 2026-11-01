@@ -206,9 +206,21 @@ struct AppModelTests {
         model.pendingWipe = phone
         #expect(await fake.launches.isEmpty)
 
-        await model.confirmWipe()
+        await model.confirmWipe(phone)
 
         #expect(model.pendingWipe == nil)
+        #expect(await fake.launches == [.init(id: phone.id, options: LaunchOptions(coldBoot: true, wipeData: true))])
+    }
+
+    @Test func wipeStillWorksAfterTheDialogClearedThePendingDevice() async {
+        let fake = FakeDeviceService()
+        let model = makeModel(fake)
+        await model.refresh()
+        model.pendingWipe = phone
+
+        model.pendingWipe = nil  // the dialog closing, before the button's task runs
+        await model.confirmWipe(phone)
+
         #expect(await fake.launches == [.init(id: phone.id, options: LaunchOptions(coldBoot: true, wipeData: true))])
     }
 
