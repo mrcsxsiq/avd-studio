@@ -46,13 +46,40 @@ class SystemImageCatalogTest {
         assertEquals(listOf("google_apis_playstore", "page_size_16kb"), playstore.tags)
         assertTrue(playstore.hasPlayStore)
         assertEquals(ImageFamily.GENERAL, playstore.family)
-        assertEquals("Android 17 (API 37) · Google APIs PlayStore,Page Size 16KB · arm64-v8a", playstore.displayName)
+        assertEquals("Android 17 (API 37) · Google Play (16 KB pages) · arm64-v8a", playstore.displayName)
 
         val tv = images.first { "google-tv" in it.tags }
         assertEquals(ImageFamily.TV, tv.family)
         assertTrue(tv.family.supports(FormFactor.TV))
         assertFalse(tv.family.supports(FormFactor.PHONE))
         assertEquals("system-images/android-36/google-tv/arm64-v8a", tv.directory)
+    }
+
+    @Test
+    fun usesOurNamesForKnownTagsSoInstalledAndDownloadableImagesAgree() {
+        image(
+            "android-36",
+            "google-tv",
+            "arm64-v8a",
+            "SystemImage.TagId=google-tv,google_apis\nSystemImage.TagDisplay=Google TV,Google APIs\n",
+        )
+
+        val tv = SystemImageCatalog(fs).installed(sdk).single()
+
+        assertEquals("Google TV", tv.tagDisplay, "not the text Google wrote into the image")
+        assertEquals(ImageTags.humanize("google-tv"), tv.tagDisplay)
+    }
+
+    @Test
+    fun keepsTheTextGoogleWroteForATagItHasNeverSeen() {
+        image(
+            "android-40",
+            "android-hologram",
+            "arm64-v8a",
+            "SystemImage.TagId=android-hologram\nSystemImage.TagDisplay=Holographic Display\n",
+        )
+
+        assertEquals("Holographic Display", SystemImageCatalog(fs).installed(sdk).single().tagDisplay)
     }
 
     @Test
@@ -125,5 +152,50 @@ class SystemImageCatalogTest {
 
         assertNull(preview.apiLevel)
         assertEquals("Android Baklava (preview)", preview.versionLabel)
+    }
+
+    @Test
+    fun measuresEveryImageFolder() {
+        fs.touch("$sdk/system-images/android-36/google_apis/arm64-v8a/system.img", "x".repeat(1000))
+        fs.touch("$sdk/system-images/android-36/google_apis/arm64-v8a/data/userdata.img", "y".repeat(234))
+        fs.touch("$sdk/system-images/android-36/google_apis/arm64-v8a/source.properties", "SystemImage.Abi=arm64-v8a\n")
+        fs.touch("$sdk/system-images/android-35/google_apis/arm64-v8a/system.img", "z".repeat(10))
+        fs.touch("$sdk/system-images/android-35/google_apis/x86_64/system.img", "w".repeat(7))
+
+        val sizes = SystemImageCatalog(fs).installed(sdk).associate { it.packagePath to it.sizeBytes }
+
+        assertEquals(1234L + "SystemImage.Abi=arm64-v8a\n".length, sizes["system-images;android-36;google_apis;arm64-v8a"])
+        assertEquals(10L, sizes["system-images;android-35;google_apis;arm64-v8a"])
+        assertEquals(7L, sizes["system-images;android-35;google_apis;x86_64"])
+    }
+
+    @Test
+    fun theSizeIsUnknownUntilSomeoneMeasuresIt() {
+        val unmeasured =
+            SystemImage(
+                packagePath = "system-images;android-36;google_apis;arm64-v8a",
+                directory = "system-images/android-36/google_apis/arm64-v8a",
+                apiLevel = ApiLevel(36),
+                codeName = null,
+                tags = listOf("google_apis"),
+                tagDisplay = "Google APIs",
+                abi = "arm64-v8a",
+            )
+
+        assertNull(unmeasured.sizeBytes)
+    }
+
+    @Test
+    fun installedAndDownloadableImagesAgreeOnTheLabelsAndTheFamily() {
+        image("android-34", "google-xr", "arm64-v8a")
+        image("android-36", "google_apis_playstore_ps16k", "arm64-v8a")
+        image("android-30", "google_atd", "arm64-v8a")
+
+        val images = SystemImageCatalog(fs).installed(sdk).associateBy { it.tags.single() }
+
+        assertEquals(ImageFamily.XR, images.getValue("google-xr").family)
+        assertEquals("Android XR", images.getValue("google-xr").tagDisplay)
+        assertEquals("Google Play (16 KB pages)", images.getValue("google_apis_playstore_ps16k").tagDisplay)
+        assertEquals("Automated test device (Google APIs)", images.getValue("google_atd").tagDisplay)
     }
 }

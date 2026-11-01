@@ -426,4 +426,305 @@ class AvdStudioCoreTest {
         )
         assertTrue(core().installedSystemImages("/nowhere").isEmpty())
     }
+
+    // MARK: Downloading and removing system images
+
+    private val sdkManager get() = "$sdk/cmdline-tools/latest/bin/sdkmanager"
+    private val playImagePackage = "system-images;android-36;google_apis_playstore;arm64-v8a"
+
+    private fun readyForSdkManager(): AvdStudioCore {
+        fs.installSdk(sdk)
+        fs.touch("/jdk/bin/java")
+        return core("JAVA_HOME" to "/jdk")
+    }
+
+    private fun usedBy(
+        name: String,
+        image: String,
+    ) {
+        fs.touch("$avdHome/$name.ini", "path=$avdHome/$name.avd\ntarget=android-36")
+        fs.touch("$avdHome/$name.avd/config.ini", "hw.device.name=pixel_9\nimage.sysdir.1=$image")
+    }
+
+    @Test
+    fun availableImagesComeFromSdkmanagerListAndOnlyTheNativeOnesByDefault() {
+        val core = readyForSdkManager()
+        runner.onRun = { CommandResult(0, SDKMANAGER_LIST, "WARNING: The SDK Manager CLI tool (sdkmanager) is deprecated.\n") }
+
+        val native = core.availableSystemImages()
+
+        val command = runner.executed.single()
+        assertEquals(sdkManager, command.executable)
+        assertEquals(listOf("--sdk_root=$sdk", "--list"), command.arguments)
+        assertEquals("/jdk", command.environment["JAVA_HOME"])
+        assertEquals(sdk, command.environment["ANDROID_HOME"])
+        assertTrue(native.isNotEmpty() && native.all { it.isNativeOnAppleSilicon })
+        assertEquals("system-images;android-canary-20261007;google_apis_playstore_ps16k;arm64-v8a", native.first().packagePath)
+        assertEquals(
+            setOf(
+                playImagePackage,
+                "system-images;android-23;default;armeabi-v7a",
+            ),
+            core
+                .availableSystemImages(includeNonNative = true)
+                .filter {
+                    it.isInstalled
+                }.map { it.packagePath }
+                .toSet(),
+        )
+        assertEquals(19, core.availableSystemImages(includeNonNative = true).size)
+    }
+
+    @Test
+    fun availableImagesUseTheExplicitSdkFolder() {
+        fs.installSdk("/Volumes/ssd/sdk")
+        fs.touch("/jdk/bin/java")
+        runner.onRun = { CommandResult(0, SDKMANAGER_LIST, "") }
+
+        core("JAVA_HOME" to "/jdk").availableSystemImages(sdkPathOverride = "/Volumes/ssd/sdk")
+
+        val command = runner.executed.single()
+        assertEquals("/Volumes/ssd/sdk/cmdline-tools/latest/bin/sdkmanager", command.executable)
+        assertEquals(listOf("--sdk_root=/Volumes/ssd/sdk", "--list"), command.arguments)
+    }
+
+    @Test
+    fun sdkmanagerToolsAreRequiredAndTheErrorsSayHowToFixThat() {
+        val noSdk = assertFailsWith<CommandException> { core().availableSystemImages() }
+        assertTrue(noSdk.message.orEmpty().contains("sdkmanager is not installed"))
+        assertTrue(noSdk.message.orEmpty().contains("avdstudio setup"))
+        assertTrue(noSdk.message.orEmpty().contains("avdstudio doctor"))
+
+        fs.installSdk(sdk)
+        val noJava = assertFailsWith<CommandException> { core().installSystemImages(listOf(playImagePackage), licensesAccepted = true) }
+        assertTrue(noJava.message.orEmpty().contains("Java"))
+        assertTrue(noJava.message.orEmpty().contains("avdstudio setup"))
+        assertTrue(runner.executed.isEmpty())
+    }
+
+    @Test
+    fun availableImagesReportWhatSdkmanagerComplainedAboutWithoutItsBanner() {
+        val core = readyForSdkManager()
+        runner.onRun = {
+            CommandResult(
+                1,
+                "",
+                "WARNING: The SDK Manager CLI tool (sdkmanager) is deprecated. Android CLI will be used instead.\n" +
+                    "The 'android' binary can also be found in the cmdline-tools directory.\n" +
+                    "Error: Could not determine SDK root.\n",
+            )
+        }
+
+        val error = assertFailsWith<CommandException> { core.availableSystemImages() }
+
+        assertEquals("sdkmanager could not list the system images: Error: Could not determine SDK root.", error.message)
+    }
+
+    @Test
+    fun availableImagesExplainAnOfflineListing() {
+        val core = readyForSdkManager()
+        runner.onRun = {
+            CommandResult(
+                0,
+                "Installed packages:\n  emulator  37.2.13  Android Emulator\n",
+                "Warning: Failed to download any source lists!\n",
+            )
+        }
+
+        val error = assertFailsWith<CommandException> { core.availableSystemImages() }
+
+        assertTrue(error.message.orEmpty().contains("internet connection"))
+        assertTrue(error.message.orEmpty().contains("Failed to download any source lists"))
+    }
+
+    @Test
+    fun installNeverAcceptsTheLicenseOnItsOwn() {
+        val core = readyForSdkManager()
+
+        val error = assertFailsWith<CommandException> { core.installSystemImages(listOf(playImagePackage), licensesAccepted = false) }
+
+        assertTrue(error.message.orEmpty().contains("developer.android.com/studio/terms"))
+        assertTrue(runner.executed.isEmpty())
+    }
+
+    @Test
+    fun installRefusesAnythingButSystemImages() {
+        val core = readyForSdkManager()
+        val refused =
+            listOf(
+                emptyList<String>(),
+                listOf("emulator"),
+                listOf(playImagePackage, "platform-tools"),
+                listOf("system-images;android-36"),
+                listOf("system-images;android-36;google_apis;arm64-v8a; rm -rf ~"),
+                listOf("system-images/../../emulator/x/y"),
+                listOf("\"$playImagePackage\""),
+            )
+
+        for (packages in refused) {
+            assertFailsWith<CommandException>(packages.toString()) { core.installSystemImages(packages, licensesAccepted = true) }
+        }
+        assertTrue(runner.executed.isEmpty())
+    }
+
+    @Test
+    fun installAcceptsTheLicensesThenInstallsTheNormalisedPackages() {
+        val core = readyForSdkManager()
+        runner.onRun = { command ->
+            if (command.executable == "/bin/sh") {
+                CommandResult(0, "All SDK package licenses accepted.\n", "")
+            } else {
+                CommandResult(0, "[=======] 100% Unzipping...\n", "")
+            }
+        }
+
+        val result =
+            core.installSystemImages(
+                listOf(
+                    "system-images/android-36/google_apis_playstore/arm64-v8a/",
+                    playImagePackage,
+                    "system-images;android-35;default;arm64-v8a",
+                ),
+                licensesAccepted = true,
+            )
+
+        val (licenses, install) = runner.executed
+        assertEquals("/bin/sh", licenses.executable)
+        assertEquals(
+            listOf("-c", "/usr/bin/yes | \"\$0\" --sdk_root=\"\$1\" --licenses", sdkManager, sdk),
+            licenses.arguments,
+            "paths are positional parameters, never part of the script",
+        )
+        assertEquals(sdkManager, install.executable)
+        assertEquals(
+            listOf("--sdk_root=$sdk", playImagePackage, "system-images;android-35;default;arm64-v8a"),
+            install.arguments,
+        )
+        assertEquals("/jdk", install.environment["JAVA_HOME"])
+        assertEquals("/jdk", licenses.environment["JAVA_HOME"])
+        assertTrue(result.isSuccess)
+        assertTrue(result.standardOutput.contains("All SDK package licenses accepted."))
+        assertTrue(result.standardOutput.contains("Unzipping"))
+    }
+
+    @Test
+    fun installStopsAndReportsTheFailingLicenseStep() {
+        val core = readyForSdkManager()
+        runner.onRun = { CommandResult(1, "", "License for package Android SDK Platform-Tools not accepted.") }
+
+        val result = core.installSystemImages(listOf(playImagePackage), licensesAccepted = true)
+
+        assertEquals(1, result.exitCode)
+        assertTrue(result.standardError.contains("not accepted"))
+        assertEquals(1, runner.executed.size)
+    }
+
+    @Test
+    fun installReportsAFailedDownload() {
+        val core = readyForSdkManager()
+        runner.onRun = { command ->
+            if (command.executable ==
+                "/bin/sh"
+            ) {
+                CommandResult(0, "", "")
+            } else {
+                CommandResult(1, "", "Warning: Failed to download https://dl.google.com/x.zip")
+            }
+        }
+
+        val result = core.installSystemImages(listOf(playImagePackage), licensesAccepted = true)
+
+        assertFalse(result.isSuccess)
+        assertTrue(result.standardError.contains("Failed to download"))
+    }
+
+    @Test
+    fun installCountsAPackageSdkmanagerCouldNotFindAsAFailureEvenWithExitCodeZero() {
+        val core = readyForSdkManager()
+        runner.onRun = { command ->
+            if (command.executable ==
+                "/bin/sh"
+            ) {
+                CommandResult(0, "", "")
+            } else {
+                CommandResult(0, "Package system-images;android-99;default;arm64-v8a not found.\n", "")
+            }
+        }
+
+        val result = core.installSystemImages(listOf("system-images;android-99;default;arm64-v8a"), licensesAccepted = true)
+
+        assertEquals(1, result.exitCode)
+    }
+
+    @Test
+    fun findsTheDevicesThatUseAnImageWhicheverWayItIsWritten() {
+        usedBy("Pixel_9", "system-images/android-36/google_apis_playstore/arm64-v8a/")
+        usedBy("Tablet", "system-images/android-36/google_apis_playstore/arm64-v8a")
+        usedBy("Other", "system-images/android-34/google_apis/arm64-v8a/")
+        fs.touch("$avdHome/Broken.ini", "path=$avdHome/Broken.avd")
+
+        val core = core()
+
+        assertEquals(listOf("Pixel_9", "Tablet"), core.devicesUsingSystemImage(playImagePackage))
+        assertEquals(listOf("Pixel_9", "Tablet"), core.devicesUsingSystemImage("system-images/android-36/google_apis_playstore/arm64-v8a/"))
+        assertEquals(listOf("Other"), core.devicesUsingSystemImage("system-images;android-34;google_apis;arm64-v8a"))
+        assertTrue(core.devicesUsingSystemImage("system-images;android-30;default;arm64-v8a").isEmpty())
+        assertTrue(core.devicesUsingSystemImage("emulator").isEmpty())
+    }
+
+    @Test
+    fun removeUninstallsTheImageWithSdkmanager() {
+        val core = readyForSdkManager()
+        runner.onRun = { CommandResult(0, "Uninstalling...", "") }
+
+        val result = core.removeSystemImage("system-images/android-36/google_apis_playstore/arm64-v8a")
+
+        assertTrue(result.isSuccess)
+        val command = runner.executed.single { it.executable == sdkManager }
+        assertEquals(listOf("--sdk_root=$sdk", "--uninstall", playImagePackage), command.arguments)
+        assertEquals("/jdk", command.environment["JAVA_HOME"])
+    }
+
+    @Test
+    fun removeRefusesAnythingButSystemImages() {
+        val core = readyForSdkManager()
+
+        for (name in listOf("emulator", "platform-tools", "cmdline-tools;latest", "system-images", "platforms;android-36")) {
+            assertFailsWith<CommandException>(name) { core.removeSystemImage(name, force = true) }
+        }
+        assertTrue(runner.executed.none { it.executable == sdkManager })
+    }
+
+    @Test
+    fun removeRefusesWhileDevicesUseTheImageUnlessForced() {
+        val core = readyForSdkManager()
+        usedBy("Pixel_9", "system-images/android-36/google_apis_playstore/arm64-v8a/")
+        usedBy("Tablet", "system-images/android-36/google_apis_playstore/arm64-v8a/")
+
+        val error = assertFailsWith<CommandException> { core.removeSystemImage(playImagePackage) }
+
+        assertTrue(error.message.orEmpty().contains("Pixel_9, Tablet"))
+        assertTrue(runner.executed.none { it.executable == sdkManager })
+
+        core.removeSystemImage(playImagePackage, force = true)
+
+        assertEquals(
+            listOf("--sdk_root=$sdk", "--uninstall", playImagePackage),
+            runner.executed.last { it.executable == sdkManager }.arguments,
+        )
+    }
+
+    @Test
+    fun removeNeverTouchesAnImageARunningEmulatorWasStartedFrom() {
+        val core = readyForSdkManager()
+        usedBy("Busy", "system-images/android-36/google_apis_playstore/arm64-v8a/")
+        usedBy("Idle", "system-images/android-36/google_apis_playstore/arm64-v8a/")
+        usedBy("Elsewhere", "system-images/android-34/google_apis/arm64-v8a/")
+        runner.psOutput = "77 /x/qemu-system-aarch64 -avd Busy\n78 /x/qemu-system-aarch64 -avd Elsewhere"
+
+        val error = assertFailsWith<CommandException> { core.removeSystemImage(playImagePackage, force = true) }
+
+        assertEquals("Busy is running with this system image. Stop it first.", error.message)
+        assertTrue(runner.executed.none { it.executable == sdkManager })
+    }
 }

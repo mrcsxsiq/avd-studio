@@ -3,9 +3,13 @@ package dev.marcos.avdstudio.cli
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
+import com.github.ajalt.clikt.core.UsageError
+import com.github.ajalt.clikt.core.findObject
+import com.github.ajalt.clikt.core.findOrSetObject
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.arguments.multiple
 import com.github.ajalt.clikt.parameters.groups.OptionGroup
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
 import com.github.ajalt.clikt.parameters.options.flag
@@ -280,19 +284,69 @@ private val TYPE_CHOICES =
         "xr" to FormFactor.XR,
     )
 
+/**
+ * Clikt re-wraps help text and folds single newlines into spaces; only a NEL (U+0085) is a hard line break.
+ * Lines of an example block are joined with it so every command stays on its own line.
+ */
+private fun hardBreaks(vararg lines: String): String = lines.joinToString("\u0085")
+
+/** What `avdstudio images --sdk-path … install` hands down to its subcommand, so the flag works on either side. */
+private class InheritedLocations(
+    val sdkPath: String?,
+    val avdHome: String?,
+)
+
+private fun CliktCommand.inherited(): InheritedLocations? = currentContext.findObject<InheritedLocations>()
+
 class ImagesCommand(
     private val coreFactory: CoreFactory,
 ) : CliktCommand(name = "images") {
+    init {
+        subcommands(ImagesInstallCommand(coreFactory), ImagesRemoveCommand(coreFactory))
+    }
+
+    override val invokeWithoutSubcommand = true
+
     private val location by LocationOptions()
+    private val available by option(
+        "--available",
+        help = "List the system images you can download (needs Java and a network connection) instead of the installed ones.",
+    ).flag()
+    private val allAbis by option(
+        "--all-abis",
+        help = "With --available: include x86 and 32-bit images too. They run slowly on Apple Silicon.",
+    ).flag()
     private val json by option("--json", help = "Print machine-readable JSON.").flag()
 
-    override fun help(context: Context) = "List the system images installed in the SDK (what `create --image` accepts)."
+    override fun help(context: Context) = "List, download and remove system images (the installed ones by default)."
 
     override fun helpEpilog(context: Context) =
-        "To install more, run `sdkmanager --list | grep system-images` and then `sdkmanager \"<package>\"`."
+        """
+        Without a subcommand this lists the system images installed in the SDK: what `create --image` accepts.
+        With --available it lists what Google offers for download and marks the ones you already have.
+        Only arm64-v8a images run at full speed on Apple Silicon, so the others are hidden unless you pass --all-abis.
+
+        Examples:
+        """.trimIndent() +
+            hardBreaks(
+                "",
+                "  avdstudio images",
+                "  avdstudio images --available",
+                "  avdstudio images --available --all-abis --json",
+                "  avdstudio images install \"system-images;android-36;google_apis_playstore;arm64-v8a\" --accept-licenses",
+                "  avdstudio images remove \"system-images;android-34;google_apis;arm64-v8a\"",
+            )
 
     override fun run() {
-        val images = coreFactory().installedSystemImages(location.sdkPath)
+        currentContext.findOrSetObject { InheritedLocations(location.sdkPath, location.avdHome) }
+        if (currentContext.invokedSubcommand != null) return
+        if (allAbis && !available) throw UsageError("--all-abis only works together with --available.")
+        val core = coreFactory()
+        if (available) {
+            listAvailable(core)
+            return
+        }
+        val images = core.installedSystemImages(location.sdkPath)
         when {
             json -> {
                 echo(Output.json.encodeToString(images.map { it.toDto() }))
@@ -300,7 +354,8 @@ class ImagesCommand(
 
             images.isEmpty() -> {
                 echo(
-                    "No system images installed. Install one with `sdkmanager \"system-images;android-36;google_apis_playstore;arm64-v8a\"`.",
+                    "No system images installed. Run `avdstudio images --available` to see what you can download, " +
+                        "then `avdstudio images install <package>`.",
                 )
             }
 
@@ -308,6 +363,185 @@ class ImagesCommand(
                 echo(Output.imageTable(images))
             }
         }
+    }
+
+    private fun listAvailable(core: AvdStudioCore) {
+        val images =
+            try {
+                core.availableSystemImages(location.sdkPath, includeNonNative = allAbis)
+            } catch (error: CommandException) {
+                echo(error.message, err = true)
+                throw ProgramResult(1)
+            }
+        when {
+            json -> {
+                echo(Output.json.encodeToString(images.map { it.toDto() }))
+            }
+
+            images.isEmpty() -> {
+                echo("sdkmanager offers no system images for this Mac.")
+            }
+
+            else -> {
+                echo(Output.availableImageTable(images))
+                echo()
+                echo(Output.dim("Install one with: avdstudio images install <package> --accept-licenses"))
+            }
+        }
+    }
+}
+
+class ImagesInstallCommand(
+    private val coreFactory: CoreFactory,
+) : CliktCommand(name = "install") {
+    private val location by LocationOptions()
+    private val packages by argument(
+        name = "PACKAGE",
+        help = "A system image from `avdstudio images --available`, e.g. system-images;android-36;google_apis_playstore;arm64-v8a.",
+    ).multiple(required = true)
+    private val acceptLicenses by
+        option(
+            "--accept-licenses",
+            help = "Accept the Android SDK License Agreement (${SetupPlan.LICENSE_URL}) so sdkmanager can install packages.",
+        ).flag()
+
+    override fun help(context: Context) = "Download and install system images with sdkmanager."
+
+    override fun helpEpilog(context: Context) =
+        """
+        Packages can be written with ';' (quote them, the shell treats ';' specially) or with '/'. Installing
+        something that is already installed updates it. Only system images are accepted here.
+
+        Downloading means accepting the Android SDK License Agreement (${SetupPlan.LICENSE_URL}).
+        avdstudio never does that for you: read it, then pass --accept-licenses.
+
+        Examples:
+        """.trimIndent() +
+            hardBreaks(
+                "",
+                "  avdstudio images install \"system-images;android-36;google_apis_playstore;arm64-v8a\" --accept-licenses",
+                "  avdstudio images install system-images/android-36/google_apis/arm64-v8a --accept-licenses",
+            )
+
+    override fun run() {
+        val core = coreFactory()
+        val sdkPath = location.sdkPath ?: inherited()?.sdkPath
+        val names = packages.map { core.normalizedSystemImagePackage(it) ?: refuse(it) }.distinct()
+
+        echo(Output.heading("This will download and install:"))
+        names.forEach { echo("  $it") }
+        echo(Output.dim("Into: ${core.toolchainStatus(sdkPath).sdkPath}"))
+        echo()
+        if (!acceptLicenses) {
+            echo("Installing system images means accepting the Android SDK License Agreement:", err = true)
+            echo("  ${SetupPlan.LICENSE_URL}", err = true)
+            echo("Run again with --accept-licenses once you have read it.", err = true)
+            throw ProgramResult(1)
+        }
+
+        echo("Accepting the licenses and downloading. This can take a few minutes…")
+        val result =
+            try {
+                core.installSystemImages(names, licensesAccepted = true, sdkPathOverride = sdkPath)
+            } catch (error: CommandException) {
+                echo(Output.failure("✗ ${error.message}"), err = true)
+                throw ProgramResult(1)
+            }
+        if (!result.isSuccess) {
+            echo(Output.failure("✗ sdkmanager failed (exit ${result.exitCode})"), err = true)
+            Output.sdkManagerTail(result).forEach { echo("    $it", err = true) }
+            throw ProgramResult(1)
+        }
+        echo(Output.success("✓ Installed ${names.size} system image${if (names.size == 1) "" else "s"}."))
+        echo(Output.dim("Create a device with: avdstudio create -n NAME -i \"${names.first()}\" -d <device>   (see `avdstudio devices`)"))
+    }
+
+    private fun refuse(value: String): Nothing {
+        echo("\"$value\" is not a system image. Use a package from `avdstudio images --available`.", err = true)
+        throw ProgramResult(1)
+    }
+}
+
+class ImagesRemoveCommand(
+    private val coreFactory: CoreFactory,
+) : CliktCommand(name = "remove") {
+    private val location by LocationOptions()
+    private val image by argument(
+        name = "PACKAGE",
+        help = "An installed system image from `avdstudio images`.",
+    )
+    private val yes by option("--yes", "-y", help = "Do not ask for confirmation.").flag()
+    private val force by option(
+        "--force",
+        help = "Remove the image even though virtual devices use it. They will not start until it is installed again.",
+    ).flag()
+
+    override fun help(context: Context) = "Uninstall a system image and free its disk space."
+
+    override fun helpEpilog(context: Context) =
+        """
+        Refuses while a virtual device still uses the image (list them with `avdstudio list`), unless you pass --force.
+        An image used by a running emulator is never removed: stop the device first.
+
+        Examples:
+        """.trimIndent() +
+            hardBreaks(
+                "",
+                "  avdstudio images remove \"system-images;android-34;google_apis;x86_64\"",
+                "  avdstudio images remove system-images/android-34/google_apis/x86_64 --yes",
+            )
+
+    override fun run() {
+        val core = coreFactory()
+        val sdkPath = location.sdkPath ?: inherited()?.sdkPath
+        val avdHome = location.avdHome ?: inherited()?.avdHome
+        val name =
+            core.normalizedSystemImagePackage(image)
+                ?: fail("\"$image\" is not a system image. Run `avdstudio images` to see what is installed.")
+        val installed =
+            core.installedSystemImages(sdkPath).firstOrNull { it.packagePath == name }
+                ?: fail("The system image \"$name\" is not installed. Run `avdstudio images` to see what is.")
+
+        val users = core.devicesUsingSystemImage(name, sdkPath, avdHome)
+        val running = core.runningEmulators().map { it.avdName }.filter { it in users }
+        if (running.isNotEmpty()) fail("${running.joinToString(", ")} is running with this system image. Stop it first.")
+        if (users.isNotEmpty()) {
+            echo("Used by: ${users.joinToString(", ")}", err = !force)
+            if (!force) {
+                fail("Delete those devices first (`avdstudio delete NAME`), or run again with --force to remove the image anyway.")
+            }
+        }
+
+        if (!yes) {
+            if (!currentContext.terminal.terminalInfo.interactive) {
+                echo("Removing a system image deletes its files. Run again with --yes to confirm.", err = true)
+                throw ProgramResult(1)
+            }
+            val size = installed.sizeBytes?.let { " (${Output.formatBytes(it)})" }.orEmpty()
+            val confirmed =
+                com.github.ajalt.mordant.terminal
+                    .YesNoPrompt("Remove $name$size?", currentContext.terminal, default = false)
+                    .ask()
+            if (confirmed != true) throw ProgramResult(1)
+        }
+
+        val result =
+            try {
+                core.removeSystemImage(name, sdkPath, avdHome, force)
+            } catch (error: CommandException) {
+                fail(error.message.orEmpty())
+            }
+        if (!result.isSuccess) {
+            echo(Output.failure("✗ sdkmanager failed (exit ${result.exitCode})"), err = true)
+            Output.sdkManagerTail(result).forEach { echo("    $it", err = true) }
+            throw ProgramResult(1)
+        }
+        echo(Output.success("Removed $name.") + (installed.sizeBytes?.let { " Freed about ${Output.formatBytes(it)}." } ?: ""))
+    }
+
+    private fun fail(message: String): Nothing {
+        echo(message, err = true)
+        throw ProgramResult(1)
     }
 }
 

@@ -6,10 +6,13 @@ import dev.marcos.avdstudio.core.avd.AvdHomeLocator
 import dev.marcos.avdstudio.core.avd.AvdNames
 import dev.marcos.avdstudio.core.avd.AvdRepository
 import dev.marcos.avdstudio.core.avd.CreateAvdRequest
+import dev.marcos.avdstudio.core.catalog.AvailableSystemImage
+import dev.marcos.avdstudio.core.catalog.AvailableSystemImages
 import dev.marcos.avdstudio.core.catalog.DeviceProfile
 import dev.marcos.avdstudio.core.catalog.DeviceProfileCatalog
 import dev.marcos.avdstudio.core.catalog.SystemImage
 import dev.marcos.avdstudio.core.catalog.SystemImageCatalog
+import dev.marcos.avdstudio.core.catalog.SystemImagePackage
 import dev.marcos.avdstudio.core.doctor.Doctor
 import dev.marcos.avdstudio.core.doctor.DoctorReport
 import dev.marcos.avdstudio.core.emulator.EmulatorCommands
@@ -26,6 +29,7 @@ import dev.marcos.avdstudio.core.sdk.AndroidTool
 import dev.marcos.avdstudio.core.sdk.JavaInstallation
 import dev.marcos.avdstudio.core.sdk.JavaLocator
 import dev.marcos.avdstudio.core.sdk.SdkLocator
+import dev.marcos.avdstudio.core.sdk.SdkManagerListParser
 import dev.marcos.avdstudio.core.sdk.ToolEnvironment
 import dev.marcos.avdstudio.core.sdk.ToolchainStatus
 import dev.marcos.avdstudio.core.setup.SetupPlan
@@ -211,6 +215,112 @@ public class AvdStudioCore internal constructor(
         avdCreator.delete(avdName, avdManager, avdHome(avdHomeOverride), environment)
     }
 
+    // MARK: Downloading and removing system images
+
+    /**
+     * The system images `sdkmanager` can download, with the ones already installed marked. Runs
+     * `sdkmanager --list`, so it needs Java and the network. Newest Android first; within a version
+     * Play > Google APIs > default. With [includeNonNative] false only arm64-v8a images are returned,
+     * the only ones that run at full speed on Apple Silicon.
+     */
+    @Throws(CommandException::class)
+    public fun availableSystemImages(
+        sdkPathOverride: String? = null,
+        includeNonNative: Boolean = false,
+    ): List<AvailableSystemImage> {
+        val tool = sdkManagerOrThrow(sdkPathOverride)
+        val result = runner.run(Command(tool.executable, listOf("--sdk_root=${tool.sdkPath}", "--list"), tool.environment))
+        if (!result.isSuccess) {
+            val problem = sdkManagerComplaint(result.standardError.ifBlank { result.standardOutput })
+            throw CommandException("sdkmanager could not list the system images: ${problem.ifEmpty { "exit code ${result.exitCode}" }}")
+        }
+        val listing = SdkManagerListParser.parse(result.standardOutput)
+        if (listing.available.isEmpty()) {
+            // Offline, sdkmanager still lists what is installed but exits normally.
+            throw CommandException(
+                "sdkmanager did not list any downloadable packages. Check your internet connection and try again." +
+                    sdkManagerComplaint(result.standardError).takeIf { it.isNotEmpty() }?.let { " ($it)" }.orEmpty(),
+            )
+        }
+        return AvailableSystemImages.from(listing).filter { includeNonNative || it.isNativeOnAppleSilicon }
+    }
+
+    /** The `;` form of a system image package (`/` and a trailing separator are accepted), or null when it is not one. */
+    public fun normalizedSystemImagePackage(value: String): String? = SystemImagePackage.normalize(value)
+
+    /**
+     * Accepts the Android SDK licenses and then downloads and installs [packages] with `sdkmanager`.
+     * [licensesAccepted] must be true: the person has to have read and agreed to the license first,
+     * this never decides for them. Only system images are accepted (`system-images;android-36;...`, or
+     * with `/`). Returns the result of the command that failed, or of the install when everything worked.
+     */
+    @Throws(CommandException::class)
+    public fun installSystemImages(
+        packages: List<String>,
+        licensesAccepted: Boolean,
+        sdkPathOverride: String? = null,
+    ): CommandResult {
+        if (!licensesAccepted) {
+            throw CommandException(
+                "Installing system images means accepting the Android SDK License Agreement (${SetupPlan.LICENSE_URL}). " +
+                    "Read it, then agree to continue.",
+            )
+        }
+        if (packages.isEmpty()) throw CommandException("Choose at least one system image to install.")
+        val names = packages.map { SystemImagePackage.normalize(it) ?: throw CommandException(notASystemImage(it)) }.distinct()
+
+        val tool = sdkManagerOrThrow(sdkPathOverride)
+        // `yes` answers every prompt; the status of the pipeline is sdkmanager's. Paths travel as positional
+        // parameters, never spliced into the script.
+        val licenses = runner.run(Command("/bin/sh", listOf("-c", ACCEPT_LICENSES_SCRIPT, tool.executable, tool.sdkPath), tool.environment))
+        if (!licenses.isSuccess) return licenses
+        val install = runner.run(Command(tool.executable, listOf("--sdk_root=${tool.sdkPath}") + names, tool.environment))
+        // sdkmanager does not always fail loudly for a package it cannot find.
+        val notFound = install.isSuccess && MISSING_PACKAGE.containsMatchIn(install.standardOutput + install.standardError)
+        return CommandResult(
+            exitCode = if (notFound) 1 else install.exitCode,
+            standardOutput = licenses.standardOutput + install.standardOutput,
+            standardError = licenses.standardError + install.standardError,
+        )
+    }
+
+    /** Names of the virtual devices whose configuration points at [packagePath] (`;` or `/` form). */
+    public fun devicesUsingSystemImage(
+        packagePath: String,
+        sdkPathOverride: String? = null,
+        avdHomeOverride: String? = null,
+    ): List<String> {
+        val image = SystemImagePackage.normalize(packagePath) ?: return emptyList()
+        return listAvds(sdkPathOverride, avdHomeOverride)
+            .filter { avd -> avd.systemImagePackage?.let { SystemImagePackage.same(it, image) } == true }
+            .map { it.name }
+    }
+
+    /**
+     * Uninstalls a system image with `sdkmanager --uninstall`. Refuses while an emulator started from a
+     * device that uses it is running (always), and while any device still uses it unless [force] is true.
+     */
+    @Throws(CommandException::class)
+    public fun removeSystemImage(
+        packagePath: String,
+        sdkPathOverride: String? = null,
+        avdHomeOverride: String? = null,
+        force: Boolean = false,
+    ): CommandResult {
+        val image = SystemImagePackage.normalize(packagePath) ?: throw CommandException(notASystemImage(packagePath))
+        val devices = devicesUsingSystemImage(image, sdkPathOverride, avdHomeOverride)
+        val running = runningEmulators().map { it.avdName }.filter { it in devices }
+        if (running.isNotEmpty()) {
+            val verb = if (running.size == 1) "is" else "are"
+            throw CommandException("${running.joinToString(", ")} $verb running with this system image. Stop it first.")
+        }
+        if (devices.isNotEmpty() && !force) {
+            throw CommandException("Devices use this system image: ${devices.joinToString(", ")}. Delete them first, or remove it anyway.")
+        }
+        val tool = sdkManagerOrThrow(sdkPathOverride)
+        return runner.run(Command(tool.executable, listOf("--sdk_root=${tool.sdkPath}", "--uninstall", image), tool.environment))
+    }
+
     private fun avdManagerOrThrow(
         sdkPathOverride: String?,
         avdHomeOverride: String?,
@@ -221,5 +331,46 @@ public class AvdStudioCore internal constructor(
                 ?: throw CommandException("avdmanager is not installed in ${toolchain.sdkPath}. Run setup first.")
         val java = javaInstallation() ?: throw CommandException("avdmanager needs a Java runtime and none was found. Run setup first.")
         return avdManager to ToolEnvironment(environment).build(toolchain.sdkPath, avdHome(avdHomeOverride), java)
+    }
+
+    private class SdkManagerTool(
+        val executable: String,
+        val sdkPath: String,
+        val environment: Map<String, String>,
+    )
+
+    private fun sdkManagerOrThrow(sdkPathOverride: String?): SdkManagerTool {
+        val toolchain = toolchainStatus(sdkPathOverride)
+        val sdkManager =
+            toolchain.executable(AndroidTool.SDK_MANAGER)
+                ?: throw CommandException(
+                    "sdkmanager is not installed in ${toolchain.sdkPath}. Run `avdstudio setup` to install it, " +
+                        "or `avdstudio doctor` to see what is missing.",
+                )
+        val java =
+            javaInstallation()
+                ?: throw CommandException(
+                    "sdkmanager needs a Java runtime and none was found. Run `avdstudio setup` to install one, " +
+                        "or `avdstudio doctor` to see what is missing.",
+                )
+        return SdkManagerTool(sdkManager, toolchain.sdkPath, ToolEnvironment(environment).build(toolchain.sdkPath, avdHome(null), java))
+    }
+
+    private fun notASystemImage(value: String) =
+        "\"$value\" is not a system image. Use a package like system-images;android-36;google_apis_playstore;arm64-v8a."
+
+    /** The last lines sdkmanager printed, without its deprecation banner. */
+    private fun sdkManagerComplaint(text: String): String =
+        text
+            .lines()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && !DEPRECATION_NOTICE.containsMatchIn(it) }
+            .takeLast(3)
+            .joinToString(" ")
+
+    private companion object {
+        const val ACCEPT_LICENSES_SCRIPT = "/usr/bin/yes | \"\$0\" --sdk_root=\"\$1\" --licenses"
+        val DEPRECATION_NOTICE = Regex("sdkmanager\\) is deprecated|The 'android' binary|documentation \\(https://d.android.com")
+        val MISSING_PACKAGE = Regex("Failed to find package|^Package .+ not found", RegexOption.MULTILINE)
     }
 }

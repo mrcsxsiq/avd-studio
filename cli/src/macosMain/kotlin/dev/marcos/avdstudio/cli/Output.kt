@@ -4,11 +4,13 @@ import com.github.ajalt.mordant.rendering.TextColors
 import com.github.ajalt.mordant.rendering.TextStyles
 import dev.marcos.avdstudio.core.avd.Avd
 import dev.marcos.avdstudio.core.avd.AvdHealth
+import dev.marcos.avdstudio.core.catalog.AvailableSystemImage
 import dev.marcos.avdstudio.core.catalog.DeviceProfile
 import dev.marcos.avdstudio.core.catalog.SystemImage
 import dev.marcos.avdstudio.core.doctor.CheckStatus
 import dev.marcos.avdstudio.core.doctor.DoctorCheck
 import dev.marcos.avdstudio.core.doctor.DoctorReport
+import dev.marcos.avdstudio.core.process.CommandResult
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -71,6 +73,35 @@ internal data class ImageDto(
     val playStore: Boolean,
     val native: Boolean,
     val family: String,
+    /** Disk space the image takes, in bytes; null when it could not be measured. */
+    val sizeBytes: Long?,
+)
+
+@Serializable
+internal data class AvailableImageDto(
+    @SerialName("package") val packagePath: String,
+    val api: String?,
+    val androidVersion: String?,
+    /** Preview name (`canary-20261007`, `Baklava`) when there is no API level. */
+    val codeName: String?,
+    val extensionLevel: Int?,
+    /** `beta 1` for pre-release platforms such as `android-37.2-beta1`. */
+    val prerelease: String?,
+    val version: String,
+    /** The tag as it appears in the package path (`google_apis_playstore_ps16k`). */
+    val tagId: String,
+    /** The same tag, as a label (`Google Play (16 KB pages)`). */
+    val tag: String,
+    val abi: String,
+    val revision: String,
+    val description: String,
+    val installed: Boolean,
+    val playStore: Boolean,
+    val native: Boolean,
+    val family: String,
+    val preview: Boolean,
+    val sixteenKbPages: Boolean,
+    val automatedTest: Boolean,
 )
 
 @Serializable
@@ -92,6 +123,30 @@ internal fun SystemImage.toDto() =
         playStore = hasPlayStore,
         native = isNativeOnAppleSilicon,
         family = family.name.lowercase(),
+        sizeBytes = sizeBytes,
+    )
+
+internal fun AvailableSystemImage.toDto() =
+    AvailableImageDto(
+        packagePath = packagePath,
+        api = apiLevel?.label,
+        androidVersion = apiLevel?.androidVersion,
+        codeName = codeName,
+        extensionLevel = extensionLevel,
+        prerelease = prerelease,
+        version = versionLabel,
+        tagId = tag,
+        tag = tagDisplay,
+        abi = abi,
+        revision = revision,
+        description = description,
+        installed = isInstalled,
+        playStore = hasPlayStore,
+        native = isNativeOnAppleSilicon,
+        family = family.name.lowercase(),
+        preview = isPreview,
+        sixteenKbPages = usesSixteenKbPages,
+        automatedTest = isAutomatedTestImage,
     )
 
 internal fun DeviceProfile.toDto() = ProfileDto(id = id, name = name, type = formFactor.displayName, manufacturer = manufacturer)
@@ -137,16 +192,41 @@ internal object Output {
 
     fun imageTable(images: List<SystemImage>): String =
         table(
-            listOf("ANDROID", "TAG", "ABI", "PACKAGE"),
+            listOf("ANDROID", "TAG", "ABI", "SIZE", "PACKAGE"),
             images.map {
                 listOf(
                     it.versionLabel,
                     it.tagDisplay,
                     it.abi + if (it.isNativeOnAppleSilicon) "" else " (slow)",
+                    it.sizeBytes?.let(::formatBytes) ?: "-",
                     it.packagePath,
                 )
             },
         )
+
+    /** Previews say "(preview)" in the first column and test devices say so in the second, so neither passes for a release. */
+    fun availableImageTable(images: List<AvailableSystemImage>): String =
+        table(
+            listOf("ANDROID", "FLAVOR", "ABI", "REVISION", "STATUS", "PACKAGE"),
+            images.map {
+                listOf(
+                    it.qualifiedVersionLabel,
+                    it.tagDisplay,
+                    it.abi + if (it.isNativeOnAppleSilicon) "" else " (slow)",
+                    it.revision,
+                    if (it.isInstalled) "installed" else "",
+                    it.packagePath,
+                )
+            },
+        )
+
+    /** The last lines of what sdkmanager printed, minus its deprecation banner and progress bars. */
+    fun sdkManagerTail(result: CommandResult): List<String> =
+        (result.standardError + "\n" + result.standardOutput)
+            .split('\n', '\r')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && !it.startsWith("[") && !SDKMANAGER_BANNER.containsMatchIn(it) }
+            .takeLast(15)
 
     fun profileTable(profiles: List<DeviceProfile>): String =
         table(listOf("ID", "NAME", "TYPE", "OEM"), profiles.map { listOf(it.id, it.name, it.formFactor.displayName, it.manufacturer) })
@@ -237,6 +317,8 @@ internal object Output {
             AvdHealth.MISSING_SYSTEM_IMAGE -> TextColors.yellow(text)
             AvdHealth.INVALID_CONFIGURATION -> TextColors.red(text)
         }
+
+    private val SDKMANAGER_BANNER = Regex("sdkmanager\\) is deprecated|The 'android' binary|documentation \\(https://d.android.com")
 
     /** Decimal units, matching what Finder shows. */
     fun formatBytes(bytes: Long): String {

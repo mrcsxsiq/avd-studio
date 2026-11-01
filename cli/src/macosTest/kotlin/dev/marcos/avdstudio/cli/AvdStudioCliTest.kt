@@ -534,4 +534,318 @@ class AvdStudioCliTest {
 
         assertEquals(1, cli.test(arrayOf("delete", "Gone", "--yes") + locations).statusCode)
     }
+
+    // MARK: images --available / install / remove
+
+    private val sdkManagerLog get() = root / "sdkmanager.log"
+
+    private val sdkManagerCalls
+        get() = if (fs.exists(sdkManagerLog)) fs.read(sdkManagerLog) { readUtf8() }.lines().filter { it.isNotEmpty() } else emptyList()
+
+    private val availableListing =
+        """
+        Installed packages:
+          emulator    37.2.13    Android Emulator
+          system-images/android-36/google_apis_playstore/arm64-v8a    7.0.0    Google Play ARM 64 v8a System Image
+        Available packages:
+          platforms/android-36    2.0.0    Android SDK Platform 36
+          system-images/android-36/google_apis_playstore/arm64-v8a    7.0.0    Google Play ARM 64 v8a System Image
+          system-images/android-36/google_apis/arm64-v8a    7.0.0    Google APIs ARM 64 v8a System Image
+          system-images/android-36/google_apis/x86_64    7.0.0    Google APIs Intel x86_64 Atom System Image
+          system-images/android-30/google_atd/arm64-v8a    2.0.0    Google APIs ATD ARM 64 v8a System Image
+          system-images/android-37.2-beta1/google_apis/arm64-v8a    1.0.0    Google APIs ARM 64 v8a System Image
+          system-images/android-36-ext18/google_apis/arm64-v8a    1.0.0    Google APIs ARM 64 v8a System Image
+          system-images/android-canary-20261007/google_apis_playstore_ps16k/arm64-v8a    17.0.0    16 KB Page Size Google Play ARM 64 v8a System Image
+        """.trimIndent()
+
+    /** A sdkmanager that logs its arguments, prints a canned `--list` and installs/uninstalls images like the real one. */
+    private fun installFakeSdkManager(listing: String = availableListing) {
+        write(root / "sdkmanager-list.txt", listing)
+        val script =
+            """
+            #!/bin/sh
+            echo "¤*" >> "$root/sdkmanager.log"
+            sdk=""; mode="install"
+            for a in "¤@"; do
+              case "¤a" in --sdk_root=*) sdk="¤{a#--sdk_root=}";; --list) mode=list;; --licenses) mode=licenses;; --uninstall) mode=uninstall;; esac
+            done
+            case "¤mode" in
+              list) echo "WARNING: The SDK Manager CLI tool (sdkmanager) is deprecated. Android CLI will be used instead." >&2; cat "$root/sdkmanager-list.txt";;
+              licenses) echo "All SDK package licenses accepted.";;
+              uninstall) for a in "¤@"; do case "¤a" in system-images*) rm -rf "¤sdk/¤(echo "¤a" | tr ';' '/')";; esac; done;;
+              install) for a in "¤@"; do case "¤a" in system-images*) dir="¤sdk/¤(echo "¤a" | tr ';' '/')"; mkdir -p "¤dir" && touch "¤dir/system.img";; esac; done;;
+            esac
+            """.trimIndent().replace('¤', '$')
+        executable(sdk / "cmdline-tools/latest/bin/sdkmanager", script)
+    }
+
+    private val googleApisImage = "system-images;android-36;google_apis;arm64-v8a"
+    private val slowImage = "system-images;android-34;google_apis;x86_64"
+
+    @Test
+    fun imagesAvailableListsWhatCanBeDownloadedAndMarksTheInstalledOnes() {
+        readyToCreate()
+        installFakeSdkManager()
+
+        val result = cli.test(arrayOf("images", "--available") + locations)
+
+        assertEquals(0, result.statusCode, result.stderr)
+        val rows = result.stdout.lines()
+        assertContains(rows.first { it.startsWith("ANDROID") }, "STATUS")
+        assertContains(rows.first { playImage in it }, "installed")
+        assertFalse(rows.first { googleApisImage in it }.contains("installed"))
+        assertContains(result.stdout, "Android 16 (API 36)")
+        assertContains(result.stdout, "Android canary-20261007 (preview)")
+        assertContains(result.stdout, "Google Play (16 KB pages)")
+        assertContains(result.stdout, "Automated test device")
+        assertContains(result.stdout, "Android 17 (API 37.2), beta 1")
+        assertContains(result.stdout, "Android 16 (API 36), extension 18")
+        assertFalse(result.stdout.contains("x86_64"), "non-native images are hidden by default")
+        assertFalse(result.stdout.contains("platforms;"), "only system images are listed")
+        assertEquals(listOf("--sdk_root=$sdk --list"), sdkManagerCalls)
+    }
+
+    @Test
+    fun imagesAvailableCanIncludeEveryAbi() {
+        readyToCreate()
+        installFakeSdkManager()
+
+        val result = cli.test(arrayOf("images", "--available", "--all-abis") + locations)
+
+        assertEquals(0, result.statusCode, result.stderr)
+        assertContains(result.stdout, "x86_64 (slow)")
+    }
+
+    @Test
+    fun imagesAvailableJsonCarriesEverything() {
+        readyToCreate()
+        installFakeSdkManager()
+
+        val stdout = cli.test(arrayOf("images", "--available", "--json", "--all-abis") + locations).stdout
+
+        assertContains(stdout, "\"package\": \"$playImage\"")
+        assertContains(stdout, "\"installed\": true")
+        assertContains(stdout, "\"installed\": false")
+        assertContains(stdout, "\"api\": \"36\"")
+        assertContains(stdout, "\"androidVersion\": \"16\"")
+        assertContains(stdout, "\"revision\": \"7.0.0\"")
+        assertContains(stdout, "\"tagId\": \"google_apis_playstore_ps16k\"")
+        assertContains(stdout, "\"tag\": \"Google Play (16 KB pages)\"")
+        assertContains(stdout, "\"codeName\": \"canary-20261007\"")
+        assertContains(stdout, "\"preview\": true")
+        assertContains(stdout, "\"prerelease\": \"beta 1\"")
+        assertContains(stdout, "\"extensionLevel\": 18")
+        assertContains(stdout, "\"sixteenKbPages\": true")
+        assertContains(stdout, "\"automatedTest\": true")
+        assertContains(stdout, "\"native\": false")
+        assertContains(stdout, "\"description\": \"Google Play ARM 64 v8a System Image\"")
+    }
+
+    @Test
+    fun imagesAvailableNeedsJava() {
+        installSdk()
+        installFakeSdkManager()
+
+        val result = cli.test(arrayOf("images", "--available") + locations)
+
+        assertEquals(1, result.statusCode)
+        assertContains(result.stderr, "Java")
+        assertContains(result.stderr, "avdstudio setup")
+        assertTrue(sdkManagerCalls.isEmpty())
+    }
+
+    @Test
+    fun allAbisOnlyMakesSenseWithAvailable() {
+        installSdk()
+
+        val result = cli.test(arrayOf("images", "--all-abis") + locations)
+
+        assertEquals(1, result.statusCode)
+        assertContains(result.stderr, "--available")
+    }
+
+    @Test
+    fun imagesTellsYouHowToGetOneWhenThereAreNone() {
+        installSdk()
+
+        val stdout = cli.test(arrayOf("images") + locations).stdout
+
+        assertContains(stdout, "avdstudio images --available")
+        assertContains(stdout, "avdstudio images install")
+    }
+
+    @Test
+    fun imagesShowsTheSizeOnDiskInTheTableAndInJson() {
+        readyToCreate()
+        val properties =
+            "AndroidVersion.ApiLevel=35\nSystemImage.TagId=google_apis\nSystemImage.TagDisplay=Google APIs\nSystemImage.Abi=arm64-v8a\n"
+        installImage("android-35", "google_apis", "arm64-v8a", properties)
+        write(sdk / "system-images/android-35/google_apis/arm64-v8a/system.img", "x".repeat(2_000_000))
+
+        val table = cli.test(arrayOf("images") + locations).stdout
+        val json = cli.test(arrayOf("images", "--json") + locations).stdout
+
+        assertContains(table.lines().first { it.startsWith("ANDROID") }, "SIZE")
+        assertContains(table.lines().first { "android-35" in it }, "2.0 MB")
+        assertContains(json, "\"sizeBytes\": ${2_000_000 + properties.length}")
+    }
+
+    @Test
+    fun imagesInstallRefusesToAcceptTheLicensesOnTheUsersBehalf() {
+        readyToCreate()
+        installFakeSdkManager()
+
+        val result = cli.test(arrayOf("images", "install", googleApisImage) + locations)
+
+        assertEquals(1, result.statusCode)
+        assertContains(result.stdout, googleApisImage)
+        assertContains(result.stderr, "--accept-licenses")
+        assertContains(result.stderr, "developer.android.com/studio/terms")
+        assertTrue(sdkManagerCalls.isEmpty(), "nothing may run before the license is accepted")
+        assertFalse(fs.exists(sdk / "system-images/android-36/google_apis"))
+    }
+
+    @Test
+    fun imagesInstallAcceptsTheLicensesThenInstallsThePackage() {
+        readyToCreate()
+        installFakeSdkManager()
+
+        val result =
+            cli.test(arrayOf("images", "install", "system-images/android-36/google_apis/arm64-v8a", "--accept-licenses") + locations)
+
+        assertEquals(0, result.statusCode, result.stdout + result.stderr)
+        assertEquals(listOf("--sdk_root=$sdk --licenses", "--sdk_root=$sdk $googleApisImage"), sdkManagerCalls)
+        assertContains(result.stdout, "Installed 1 system image")
+        assertContains(cli.test(arrayOf("images") + locations).stdout, googleApisImage)
+    }
+
+    @Test
+    fun imagesInstallTakesSeveralPackagesAndTheLocationFlagsOnEitherSide() {
+        readyToCreate()
+        installFakeSdkManager()
+
+        val result =
+            cli.test(
+                arrayOf("images") + locations +
+                    arrayOf("install", googleApisImage, "system-images;android-35;default;arm64-v8a", "--accept-licenses"),
+            )
+
+        assertEquals(0, result.statusCode, result.stdout + result.stderr)
+        assertEquals(
+            listOf("--sdk_root=$sdk --licenses", "--sdk_root=$sdk $googleApisImage system-images;android-35;default;arm64-v8a"),
+            sdkManagerCalls,
+        )
+        assertContains(result.stdout, "Installed 2 system images")
+    }
+
+    @Test
+    fun imagesInstallRejectsAnythingThatIsNotASystemImageBeforeRunningAnything() {
+        readyToCreate()
+        installFakeSdkManager()
+
+        for (bad in listOf("emulator", "platform-tools", "platforms;android-36", "system-images;android-36")) {
+            val result = cli.test(arrayOf("images", "install", googleApisImage, bad, "--accept-licenses") + locations)
+
+            assertEquals(1, result.statusCode, bad)
+            assertContains(result.stderr, "is not a system image")
+        }
+        assertTrue(sdkManagerCalls.isEmpty())
+    }
+
+    @Test
+    fun imagesInstallShowsWhatWentWrong() {
+        readyToCreate()
+        executable(
+            sdk / "cmdline-tools/latest/bin/sdkmanager",
+            "#!/bin/sh\ncase \"\$*\" in *--licenses*) exit 0;; esac\n" +
+                "echo 'WARNING: The SDK Manager CLI tool (sdkmanager) is deprecated.' >&2\n" +
+                "echo 'Warning: Failed to download https://dl.google.com/x.zip' >&2\nexit 1\n",
+        )
+
+        val result = cli.test(arrayOf("images", "install", googleApisImage, "--accept-licenses") + locations)
+
+        assertEquals(1, result.statusCode)
+        assertContains(result.stderr, "failed (exit 1)")
+        assertContains(result.stderr, "Failed to download")
+        assertFalse(result.stderr.contains("is deprecated"))
+    }
+
+    @Test
+    fun imagesRemoveNeedsConfirmationUnlessYesIsGiven() {
+        readyToCreate()
+        installFakeSdkManager()
+        val folder = sdk / "system-images/android-34/google_apis/x86_64"
+
+        val refused = cli.test(arrayOf("images", "remove", slowImage) + locations)
+        assertEquals(1, refused.statusCode)
+        assertContains(refused.stderr, "--yes")
+        assertTrue(fs.exists(folder))
+        assertTrue(sdkManagerCalls.isEmpty())
+
+        val removed = cli.test(arrayOf("images", "remove", "system-images/android-34/google_apis/x86_64/", "--yes") + locations)
+        assertEquals(0, removed.statusCode, removed.stderr)
+        assertContains(removed.stdout, "Removed $slowImage")
+        assertEquals(listOf("--sdk_root=$sdk --uninstall $slowImage"), sdkManagerCalls)
+        assertFalse(fs.exists(folder))
+        assertFalse(cli.test(arrayOf("images") + locations).stdout.contains(slowImage))
+    }
+
+    @Test
+    fun imagesRemoveRefusesWhileADeviceUsesTheImageUnlessForced() {
+        readyToCreate()
+        installFakeSdkManager()
+        createAvd("Pixel_9", "hw.device.name=pixel_9\nimage.sysdir.1=system-images/android-36/google_apis_playstore/arm64-v8a/")
+        val folder = sdk / "system-images/android-36/google_apis_playstore/arm64-v8a"
+
+        val refused = cli.test(arrayOf("images", "remove", playImage, "--yes") + locations)
+
+        assertEquals(1, refused.statusCode)
+        assertContains(refused.stderr, "Used by: Pixel_9")
+        assertContains(refused.stderr, "--force")
+        assertTrue(fs.exists(folder))
+        assertTrue(sdkManagerCalls.isEmpty())
+
+        val forced = cli.test(arrayOf("images", "remove", playImage, "--yes", "--force") + locations)
+
+        assertEquals(0, forced.statusCode, forced.stderr)
+        assertContains(forced.stdout, "Used by: Pixel_9")
+        assertEquals(listOf("--sdk_root=$sdk --uninstall $playImage"), sdkManagerCalls)
+        assertFalse(fs.exists(folder))
+    }
+
+    @Test
+    fun imagesRemoveRejectsWhatIsNotAnInstalledSystemImage() {
+        readyToCreate()
+        installFakeSdkManager()
+
+        val notAnImage = cli.test(arrayOf("images", "remove", "emulator", "--yes", "--force") + locations)
+        assertEquals(1, notAnImage.statusCode)
+        assertContains(notAnImage.stderr, "is not a system image")
+
+        val notInstalled = cli.test(arrayOf("images", "remove", "system-images;android-30;default;arm64-v8a", "--yes") + locations)
+        assertEquals(1, notInstalled.statusCode)
+        assertContains(notInstalled.stderr, "is not installed")
+        assertTrue(sdkManagerCalls.isEmpty())
+    }
+
+    @Test
+    fun theImagesHelpExplainsTheSubcommands() {
+        val images = cli.test("images --help").stdout
+        assertContains(images, "--available")
+        assertContains(images, "--all-abis")
+        assertContains(images, "install")
+        assertContains(images, "remove")
+        assertContains(images, "avdstudio images --available")
+
+        val install = cli.test("images install --help").stdout
+        assertContains(install, "--accept-licenses")
+        assertContains(install, "License Agreement")
+        assertContains(install, "Examples")
+        assertContains(install, "--sdk-path")
+
+        val remove = cli.test("images remove --help").stdout
+        assertContains(remove, "--force")
+        assertContains(remove, "--yes")
+        assertContains(remove, "running emulator")
+    }
 }

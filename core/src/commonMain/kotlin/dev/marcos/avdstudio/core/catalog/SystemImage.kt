@@ -39,6 +39,8 @@ public data class SystemImage(
     /** Human label from `source.properties`, e.g. `Google Play`. */
     val tagDisplay: String,
     val abi: String,
+    /** Disk space the image takes, in bytes. Null when it is unknown (not measured, or the folder could not be read). */
+    val sizeBytes: Long? = null,
 ) {
     public val hasPlayStore: Boolean
         get() = tags.any { it.contains("playstore") }
@@ -48,18 +50,10 @@ public data class SystemImage(
         get() = abi == "arm64-v8a"
 
     public val family: ImageFamily
-        get() =
-            when {
-                tags.any { it.startsWith("android-tv") || it.startsWith("google-tv") } -> ImageFamily.TV
-                tags.any { it.startsWith("android-wear") } -> ImageFamily.WEAR_OS
-                tags.any { it.startsWith("android-automotive") } -> ImageFamily.AUTOMOTIVE
-                tags.any { it.startsWith("android-desktop") } -> ImageFamily.DESKTOP
-                tags.any { it.startsWith("android-xr") || it.contains("glasses") } -> ImageFamily.XR
-                else -> ImageFamily.GENERAL
-            }
+        get() = ImageTags.family(tags)
 
     public val versionLabel: String
-        get() = apiLevel?.displayName ?: codeName?.let { "Android $it (preview)" } ?: "Unknown version"
+        get() = ImageTags.versionLabel(apiLevel, codeName)
 
     /** `Android 16 (API 36) · Google Play · arm64-v8a` */
     public val displayName: String

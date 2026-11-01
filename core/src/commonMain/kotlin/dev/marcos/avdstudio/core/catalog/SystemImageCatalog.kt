@@ -40,30 +40,28 @@ internal class SystemImageCatalog(
             apiLevel = (properties["AndroidVersion.ApiLevel"] ?: platform).let(ApiLevel::parse),
             codeName = properties["AndroidVersion.CodeName"]?.takeIf { it.isNotEmpty() },
             tags = tags,
-            tagDisplay = properties["SystemImage.TagDisplay"]?.takeIf { it.isNotEmpty() } ?: humanize(tags.first()),
+            // Our own names first, so an installed image and a downloadable one read the same; the text Google writes
+            // into the image ("Google APIs PlayStore,Page Size 16KB") is only for tags we have never seen.
+            tagDisplay =
+                ImageTags.knownLabel(tagDirectory)
+                    ?: properties["SystemImage.TagDisplay"]?.takeIf { it.isNotEmpty() }
+                    ?: ImageTags.humanize(tags.first()),
             abi = abi,
+            sizeBytes = sizeOf(abiDirectory),
         )
     }
+
+    /** Total size of every file in the image folder, or null when it cannot be read. */
+    private fun sizeOf(directory: Path): Long? =
+        runCatching {
+            fileSystem.listRecursively(directory).sumOf { fileSystem.metadataOrNull(it)?.size ?: 0L }
+        }.getOrNull()
 
     private fun directories(path: Path): List<Path> =
         runCatching { fileSystem.list(path) }
             .getOrDefault(emptyList())
             .filter { fileSystem.metadataOrNull(it)?.isDirectory == true && !it.name.startsWith(".") }
             .sortedBy { it.name }
-
-    private fun humanize(tag: String): String =
-        when (tag) {
-            "google_apis_playstore" -> "Google Play"
-            "google_apis" -> "Google APIs"
-            "default" -> "Default Android"
-            "android-tv" -> "Android TV"
-            "google-tv" -> "Google TV"
-            "android-wear" -> "Wear OS"
-            "android-automotive" -> "Automotive"
-            "android-automotive-playstore" -> "Automotive with Google Play"
-            "android-desktop" -> "Desktop"
-            else -> tag.replace('_', ' ').replace('-', ' ')
-        }
 
     private companion object {
         /** Newest Android first; within a version Play > Google APIs > default; arm64 first. */
