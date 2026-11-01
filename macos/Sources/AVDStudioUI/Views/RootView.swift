@@ -75,21 +75,26 @@ public struct RootView: View {
         .confirmationDialog(
             "Delete \(model.pendingDelete?.displayName ?? "this device")?",
             isPresented: deleteBinding,
-            titleVisibility: .visible
-        ) {
-            Button("Delete", role: .destructive) { Task { await model.confirmDelete() } }
+            titleVisibility: .visible,
+            presenting: model.pendingDelete
+        ) { device in
+            // The device travels with the button: closing the dialog clears `pendingDelete` before this task runs.
+            Button("Delete", role: .destructive) { Task { await model.confirmDelete(device) } }
             Button("Cancel", role: .cancel) { model.pendingDelete = nil }
-        } message: {
-            Text("The device and everything stored on it are removed from \(model.pendingDelete?.path ?? "disk"). This cannot be undone.")
+        } message: { device in
+            Text(
+                "The device and everything stored on it are removed from \(device.path.isEmpty ? "disk" : device.path). "
+                    + "This cannot be undone.")
         }
         .confirmationDialog(
             "Wipe all data on \(model.pendingWipe?.displayName ?? "this device")?",
             isPresented: wipeBinding,
-            titleVisibility: .visible
-        ) {
-            Button("Wipe Data and Start", role: .destructive) { Task { await model.confirmWipe() } }
+            titleVisibility: .visible,
+            presenting: model.pendingWipe
+        ) { device in
+            Button("Wipe Data and Start", role: .destructive) { Task { await model.confirmWipe(device) } }
             Button("Cancel", role: .cancel) { model.pendingWipe = nil }
-        } message: {
+        } message: { _ in
             Text("The device is reset to factory state: apps, accounts and files on it are deleted. This cannot be undone.")
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in

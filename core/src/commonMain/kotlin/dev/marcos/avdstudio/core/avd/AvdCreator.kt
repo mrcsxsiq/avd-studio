@@ -96,22 +96,48 @@ internal class AvdCreator(
         return avdDirectory.toString()
     }
 
+    /**
+     * Deletes the device. With [avdManager] it asks `avdmanager` first; without it (no Java, no command-line tools)
+     * the files are removed directly, which is all `avdmanager delete avd` does anyway.
+     */
     fun delete(
         name: String,
-        avdManager: String,
+        avdManager: String?,
         avdHome: String,
         environment: Map<String, String>,
     ) {
-        val result = runner.run(Command(avdManager, listOf("delete", "avd", "--name", name), environment))
-        val ini = avdHome.toPath() / "$name.ini"
-        if ((result.exitCode != 0 || hasError(result.standardOutput + result.standardError)) && !fileSystem.exists(ini)) {
-            failIfErrored(result.exitCode, result.standardOutput + "\n" + result.standardError, "delete $name")
+        if (name.isBlank() || name == ".." || name.contains('/') || name.contains('\\')) {
+            throw CommandException("\"$name\" is not a device name.")
+        }
+        val home = avdHome.toPath()
+        val ini = home / "$name.ini"
+        // Check before anything runs: `avdmanager delete avd` removes whatever `path=` in the .ini points at, so a
+        // stale or hand-edited file could make it delete an arbitrary folder.
+        if (fileSystem.exists(ini)) requireAvdFolder(resolveDirectory(home, name), ini)
+        if (avdManager != null) {
+            val result = runner.run(Command(avdManager, listOf("delete", "avd", "--name", name), environment))
+            if ((result.exitCode != 0 || hasError(result.standardOutput + result.standardError)) && !fileSystem.exists(ini)) {
+                failIfErrored(result.exitCode, result.standardOutput + "\n" + result.standardError, "delete $name")
+            }
+        } else if (!fileSystem.exists(ini) && !fileSystem.exists(home / "$name.avd")) {
+            throw CommandException("No device called $name was found in $avdHome.")
         }
         // avdmanager refuses devices it cannot load (missing system image); remove the files ourselves then.
         if (fileSystem.exists(ini)) {
-            val directory = resolveDirectory(avdHome.toPath(), name)
+            val directory = resolveDirectory(home, name)
+            requireAvdFolder(directory, ini)
             fileSystem.delete(ini)
             if (fileSystem.exists(directory)) fileSystem.deleteRecursively(directory)
+        }
+    }
+
+    /** The `path=` in a .ini can point anywhere. Only ever remove what is an AVD folder (`<name>.avd`). */
+    private fun requireAvdFolder(
+        directory: Path,
+        ini: Path,
+    ) {
+        if (!directory.name.endsWith(".avd")) {
+            throw CommandException("Not deleting $directory: it is not an .avd folder. Remove $ini by hand if it is stale.")
         }
     }
 

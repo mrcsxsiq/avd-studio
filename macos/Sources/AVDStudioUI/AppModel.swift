@@ -245,8 +245,10 @@ public final class AppModel {
         }
     }
 
-    public func confirmDelete() async {
-        guard let device = pendingDelete else { return }
+    /// Deletes the device the user just confirmed. The device comes from the confirmation dialog, not from
+    /// `pendingDelete`: closing the dialog clears that before the button's task gets to run, and reading it here
+    /// made "Delete" do nothing at all.
+    public func confirmDelete(_ device: VirtualDevice) async {
         pendingDelete = nil
         do {
             try await service.deleteDevice(device, locations: locations)
@@ -256,8 +258,8 @@ public final class AppModel {
         }
     }
 
-    public func confirmWipe() async {
-        guard let device = pendingWipe else { return }
+    /// Same as `confirmDelete(_:)`: takes the device from the dialog.
+    public func confirmWipe(_ device: VirtualDevice) async {
         pendingWipe = nil
         await launch(device, options: LaunchOptions(coldBoot: true, wipeData: true))
     }

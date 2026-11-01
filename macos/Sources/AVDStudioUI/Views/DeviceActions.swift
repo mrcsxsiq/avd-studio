@@ -5,6 +5,7 @@ import SwiftUI
 struct DeviceActions: View {
     let model: AppModel
     let device: VirtualDevice
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         let state = model.runState(of: device)
@@ -18,7 +19,7 @@ struct DeviceActions: View {
                 Task { await model.launch(device, options: LaunchOptions(coldBoot: true)) }
             }
             .disabled(!device.isLaunchable || state == .starting)
-            Button("Wipe Data and Start…", systemImage: "trash", role: .destructive) { model.pendingWipe = device }
+            Button("Wipe Data and Start…", systemImage: "trash", role: .destructive) { askInTheMainWindow { model.pendingWipe = device } }
                 .disabled(!device.isLaunchable || state == .starting)
         }
 
@@ -29,8 +30,16 @@ struct DeviceActions: View {
         .disabled(device.path.isEmpty)
         Button("Copy Name", systemImage: "doc.on.doc") { Clipboard.copy(device.id) }
         Divider()
-        Button("Delete…", systemImage: "trash", role: .destructive) { model.pendingDelete = device }
+        Button("Delete…", systemImage: "trash", role: .destructive) { askInTheMainWindow { model.pendingDelete = device } }
             .disabled(state != .idle)
+    }
+
+    /// The confirmation dialogs live in the main window. From the menu bar popover that window may be closed (or never
+    /// opened, with the Dock icon hidden), and then nothing would ask: bring it up first.
+    private func askInTheMainWindow(_ request: () -> Void) {
+        request()
+        NSApp.activate(ignoringOtherApps: true)
+        openWindow(id: "main")
     }
 }
 

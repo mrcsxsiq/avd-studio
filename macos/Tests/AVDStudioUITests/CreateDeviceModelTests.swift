@@ -214,10 +214,26 @@ struct AppModelCreateDeleteTests {
 
         model.pendingDelete = device
         #expect(await fake.deleted.isEmpty)
-        await model.confirmDelete()
+        await model.confirmDelete(device)
 
         #expect(await fake.deleted == [device.id])
         #expect(model.pendingDelete == nil)
+        #expect(!model.devices.contains { $0.id == device.id })
+    }
+
+    @Test func deleteStillWorksAfterTheDialogClearedThePendingDevice() async {
+        let fake = FakeDeviceService()
+        let model = AppModel(service: fake, defaults: UserDefaults(suiteName: "avdstudio.tests.\(UUID())")!)
+        await model.refresh()
+        let device = SampleData.devices[0]
+        model.pendingDelete = device
+
+        // What SwiftUI does when a confirmation button is pressed: the dialog closes, which clears the binding, and only
+        // then the button's task runs. Delete used to read the cleared value and silently do nothing.
+        model.pendingDelete = nil
+        await model.confirmDelete(device)
+
+        #expect(await fake.deleted == [device.id], "the device that was confirmed is the one deleted")
         #expect(!model.devices.contains { $0.id == device.id })
     }
 
@@ -228,7 +244,7 @@ struct AppModelCreateDeleteTests {
         await model.refresh()
         model.pendingDelete = SampleData.devices[0]
 
-        await model.confirmDelete()
+        await model.confirmDelete(SampleData.devices[0])
 
         #expect(model.errorMessage == "Pixel_9_API_36 is running. Stop it first.")
     }
