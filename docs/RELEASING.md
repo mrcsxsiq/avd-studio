@@ -1,7 +1,9 @@
 # Releasing
 
-Releases are cut from `main` by pushing a tag. Everything else (building, packaging, signing, publishing, updating
-Homebrew) is done by `.github/workflows/release.yml`.
+Releases are prepared through the Gitflow process in [GITFLOW.md](../GITFLOW.md) and [VERSIONING.md](../VERSIONING.md).
+After the release pull request is merged into `main`, the **Create release** workflow verifies CI, prepares the version
+and changelog commit, creates the tag, and invokes `.github/workflows/release.yml` to build, package, sign, publish and
+update Homebrew. Do not push release tags by hand.
 
 ## The short way: the "Create release" workflow
 
