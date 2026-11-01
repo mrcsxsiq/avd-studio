@@ -1,6 +1,6 @@
 cask "avd-studio" do
-  version "0.2.0"
-  sha256 "e5f927f9672e0791e1d4e12ee827a4d415089f84dc4e12f74d47882972798c00"
+  version "0.3.0"
+  sha256 "3ce77ed9f72083fc692375da5edb6fb3fce64f308d33cd62ed5696f11358fcc5"
 
   url "https://github.com/mrcsxsiq/avd-studio/releases/download/v#{version}/AVD-Studio-#{version}.dmg"
   name "AVD Studio"
