@@ -33,6 +33,15 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
 
 - Settings are split into three tabs: General (appearance, menu bar, updates), Android (SDK and virtual device
   folders, diagnostics, which now start with the Run Diagnostics and Fix buttons) and About.
+- Homebrew: the cask now installs the app and the `avdstudio` command together (it links the copy that ships inside
+  the app into your PATH), and its `depends_on macos:` no longer triggers a deprecation warning. Until the releases
+  are notarized the cask also clears the download quarantine flag from the app: with it, macOS killed the bundled
+  `avdstudio` on its first run and blocked the app.
+
+### Removed
+
+- The separate `avdstudio` Homebrew formula and the `avdstudio-<version>-macos-arm64.tar.gz` release asset. If you
+  installed the formula, run `brew uninstall avdstudio` and `brew install --cask mrcsxsiq/avd-studio/avd-studio`.
 
 ### Fixed
 

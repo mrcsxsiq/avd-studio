@@ -13,9 +13,18 @@ cask "avd-studio" do
   end
 
   depends_on arch: :arm64
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "AVD Studio.app"
+  # The command-line tool ships inside the app; Homebrew links it into the PATH, so one install gives both.
+  binary "#{appdir}/AVD Studio.app/Contents/Helpers/avdstudio"
+
+  # Releases are not notarized yet. With the download's quarantine flag still on, Gatekeeper kills the bundled
+  # `avdstudio` the first time it runs and blocks the app. Clear the flag on the app this project built.
+  # Remove this block when the releases are notarized (see docs/RELEASING.md).
+  postflight_steps do
+    run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{appdir}}/AVD Studio.app"]
+  end
 
   zap trash: [
     "~/Library/Application Support/dev.marcos.avdstudio",
@@ -26,12 +35,12 @@ cask "avd-studio" do
   ]
 
   caveats <<~EOS
-    AVD Studio manages the Android SDK tools that are already on your Mac; it does not install them.
-    If you have none yet, run:  avdstudio doctor
-    (the command-line tool: brew install mrcsxsiq/avd-studio/avdstudio)
+    This installed the app and the `avdstudio` command (it lives inside the app and was linked into your PATH).
 
-    Until releases are notarized, macOS may refuse to open the app the first time.
-    Right-click the app and choose Open, or run:
-      xattr -dr com.apple.quarantine "#{appdir}/AVD Studio.app"
+    AVD Studio manages the Android SDK tools that are already on your Mac. If you have none yet, open the app:
+    it can install them for you. From a terminal, `avdstudio doctor` says what is missing.
+
+    Releases are not notarized yet, so this cask removes the download quarantine flag from the app. Without that,
+    macOS would block the app and kill the `avdstudio` command the first time it runs.
   EOS
 end

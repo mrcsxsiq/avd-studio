@@ -84,15 +84,18 @@ one item:
 
 ```bash
 brew tap mrcsxsiq/avd-studio https://github.com/mrcsxsiq/avd-studio
-brew install --cask mrcsxsiq/avd-studio/avd-studio   # the app
-brew install mrcsxsiq/avd-studio/avdstudio           # the command-line tool (optional)
+brew install --cask mrcsxsiq/avd-studio/avd-studio   # the app and the avdstudio command
 ```
 
-To use the short names (`brew install --cask avd-studio`, `brew upgrade avdstudio`) trust the items first:
+The command-line tool ships inside the app, so this one cask gives you both: Homebrew links `avdstudio` into your
+`PATH`. (Versions before 0.2.0 had a separate `avdstudio` formula; it is gone.) Releases are not notarized yet, so
+the cask also clears the download quarantine flag from the app; without that macOS would block the app and kill the
+command on its first run. The DMG route does not do this: the first time, right-click the app and choose Open.
+
+To use the short name (`brew install --cask avd-studio`) trust the cask first:
 
 ```bash
 brew trust --cask mrcsxsiq/avd-studio/avd-studio
-brew trust --formula mrcsxsiq/avd-studio/avdstudio
 # or, to trust everything this tap will ever publish: brew trust --tap mrcsxsiq/avd-studio
 ```
 

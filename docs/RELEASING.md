@@ -47,11 +47,11 @@ git push origin main v0.2.0
 1. Checks that the tag matches `VERSION`.
 2. Builds the Kotlin core and the release CLI, generates the Xcode project and builds the app (Release, arm64).
 3. If the signing secrets exist: signs the app with Developer ID and hardened runtime.
-4. Packages `AVD-Studio-<version>.dmg` (drag-to-Applications) and `avdstudio-<version>-macos-arm64.tar.gz`.
+4. Packages `AVD-Studio-<version>.dmg` (drag-to-Applications). The CLI ships inside the app, so there is no separate CLI archive.
 5. If the signing secrets exist: signs the DMG, submits it to Apple's notary service and staples the ticket.
 6. Writes a `.sha256` next to every asset (the in-app updater verifies the DMG against it).
 7. Creates the GitHub release with the matching `CHANGELOG.md` section as notes.
-8. Updates `Casks/avd-studio.rb` and `Formula/avdstudio.rb` with the new version and checksums and pushes that
+8. Updates `Casks/avd-studio.rb` with the new version and checksum and pushes that
    commit to `main` (`chore(homebrew): <version>`).
 
 Watch it under **Actions → Release**. If it fails, fix the cause, delete the tag (`git push --delete origin v0.2.0`
@@ -59,10 +59,10 @@ and `git tag -d v0.2.0`) and push it again; nothing is published until step 7.
 
 ## 4. Check
 
-- Open the release page: DMG, tarball and `.sha256` files are attached, notes look right.
+- Open the release page: the DMG and its `.sha256` file are attached, notes look right.
 - Install the DMG on a clean user account: the app opens (without a warning once notarized), Settings →
   Updates shows the new version.
-- `brew upgrade --cask avd-studio` / `brew upgrade avdstudio` from the tap pick up the new version (on a Mac that trusted them).
+- `brew upgrade --cask avd-studio` from the tap picks up the new version (on a Mac that trusted it), and `avdstudio --version` runs.
 - The website's download button shows the new version (it reads the GitHub API).
 
 ## Signing and notarization secrets
@@ -90,16 +90,19 @@ fully qualified name trusts just that item, which is the form we document:
 
 ```bash
 brew tap mrcsxsiq/avd-studio https://github.com/mrcsxsiq/avd-studio
-brew install --cask mrcsxsiq/avd-studio/avd-studio    # the app
-brew install mrcsxsiq/avd-studio/avdstudio            # the CLI
+brew install --cask mrcsxsiq/avd-studio/avd-studio    # the app and the avdstudio command
 ```
 
-Short names (`brew install --cask avd-studio`) need the item trusted first:
-`brew trust --cask mrcsxsiq/avd-studio/avd-studio` / `brew trust --formula mrcsxsiq/avd-studio/avdstudio`
-(or `brew trust --tap mrcsxsiq/avd-studio` for the whole tap). Keep this in mind when you answer "brew can't find
+The cask's `binary` stanza links `AVD Studio.app/Contents/Helpers/avdstudio` into the PATH, so there is no separate
+CLI formula (0.1.0 had one; 0.2.0 removed it). Its `postflight_steps` block clears the quarantine flag, because
+Gatekeeper kills the bundled CLI of an un-notarized, quarantined app (exit 137). **Delete that block when releases
+are notarized.**
+
+The short name (`brew install --cask avd-studio`) needs the cask trusted first:
+`brew trust --cask mrcsxsiq/avd-studio/avd-studio` (or `brew trust --tap mrcsxsiq/avd-studio` for the whole tap). Keep this in mind when you answer "brew can't find
 the cask" issues: the usual cause is a missing `brew tap` URL or missing trust.
 
-`Casks/avd-studio.rb` and `Formula/avdstudio.rb` point at the GitHub release assets. Never edit their `version` and
+`Casks/avd-studio.rb` points at the GitHub release assets. Never edit its `version` and
 `sha256` by hand; the workflow calls `scripts/update-homebrew.sh`.
 
 ## Version bump checklist (humans and agents)

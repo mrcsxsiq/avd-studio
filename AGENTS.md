@@ -13,7 +13,7 @@ AVD Studio is a native macOS app plus a CLI to manage Android Virtual Devices. T
 | `cli/` | Kotlin/Native + Clikt | `avdstudio` binary. Thin: parsing, output formatting, exit codes. |
 | `macos/` | Swift 6, SwiftUI, SwiftPM + XcodeGen | `Sources/AVDStudioUI` (views, `@Observable` models, **no Kotlin imports**), `Sources/AVDStudioKit` (the only module that imports `AVDStudioCore`; maps Kotlin types to Swift types), `App/` (composition root: window, `MenuBarExtra`, Settings, update window). |
 | `website/` | Static HTML/CSS/JS | Landing page, deployed by `.github/workflows/pages.yml`. |
-| `Casks/`, `Formula/` | Ruby | This repo is also the Homebrew tap. Updated by the release workflow, never by hand. |
+| `Casks/` | Ruby | This repo is also the Homebrew tap: one cask installs the app and links the CLI that ships inside it. Updated by the release workflow, never by hand. |
 
 Package/bundle identifier: `dev.marcos.avdstudio`. Version: the `VERSION` file is the single source of truth
 (Gradle, the Xcode project, `avdstudio --version` and the release workflow all read it).
@@ -86,7 +86,7 @@ CI (`.github/workflows/ci.yml`) runs lint, Kotlin tests, Swift unit/bridge tests
 
 - Do not commit `macos/Frameworks/`, `macos/AVDStudio.xcodeproj`, `macos/App/Info.plist` or any `build/` output;
   they are generated (see `.gitignore`).
-- Do not edit `Casks/*.rb` or `Formula/*.rb` versions/checksums by hand; `scripts/update-homebrew.sh` does it in CI.
+- Do not edit `Casks/*.rb` versions/checksums by hand; `scripts/update-homebrew.sh` does it in CI.
 - Do not add `macosX64`: Kotlin deprecated it and the app is Apple Silicon only.
 - Do not add a `CNAME` file to `website/` or hard-code the production domain; see `website/README.md`.
 - Do not add web fonts, CDNs or third-party scripts to the website (its CSP would block them anyway).
