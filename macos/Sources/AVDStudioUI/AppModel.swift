@@ -115,6 +115,12 @@ public final class AppModel {
         devices.filter { $0.kind == kind }
     }
 
+    /// Chooses the tab Settings opens on from the SDK status line in the sidebar: Android when the SDK needs
+    /// attention (that is where its folder and the diagnostics are), otherwise the tab the user used last.
+    public func prepareSettingsFromSDKStatus() {
+        if needsSetup { settingsTab = .android }
+    }
+
     // MARK: Loading
 
     public func refresh() async {

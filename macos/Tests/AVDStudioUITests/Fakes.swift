@@ -36,6 +36,13 @@ actor FakeDeviceService: DeviceService {
     var removeExitCode: Int32 = 0
     var removeError: ServiceError?
     private(set) var availableRequests = 0
+    /// How long an install takes, so a test can look at the model while it runs.
+    var installDelay: Duration = .zero
+    /// Packages whose install fails with exit code 1; every other one succeeds.
+    var failingPackages: Set<String> = []
+    /// What `downloadedBytes` reports, per call, then the last value again.
+    var bytesScript: [Int64] = [0]
+    private(set) var bytesRequests: [Date] = []
     private(set) var installs: [(packages: [String], licenseAccepted: Bool)] = []
     private(set) var removals: [(package: String, force: Bool)] = []
 
@@ -62,6 +69,9 @@ actor FakeDeviceService: DeviceService {
     func setDeleteError(_ error: ServiceError?) { deleteError = error }
     func setAvailableImages(_ images: [RemoteSystemImage]) { availableImages = images }
     func setAvailableError(_ error: ServiceError?) { availableError = error }
+    func setInstallDelay(_ delay: Duration) { installDelay = delay }
+    func setFailingPackages(_ packages: Set<String>) { failingPackages = packages }
+    func setBytesScript(_ script: [Int64]) { bytesScript = script }
     func setInstall(exitCode: Int32 = 0, error: ServiceError? = nil) {
         installExitCode = exitCode
         installError = error
@@ -101,9 +111,11 @@ actor FakeDeviceService: DeviceService {
 
     func installSystemImages(_ packages: [String], licenseAccepted: Bool, locations: Locations) async throws -> SetupStepResult {
         installs.append((packages, licenseAccepted))
+        if installDelay > .zero { try? await Task.sleep(for: installDelay) }
         if let installError { throw installError }
-        guard installExitCode == 0 else {
-            return SetupStepResult(exitCode: installExitCode, output: "Warning: something\nError: download failed")
+        guard installExitCode == 0, failingPackages.isDisjoint(with: packages) else {
+            return SetupStepResult(
+                exitCode: installExitCode == 0 ? 1 : installExitCode, output: "Warning: something\nError: download failed")
         }
         // The downloaded images show up as installed, like they would on disk.
         for package in packages {
@@ -115,6 +127,11 @@ actor FakeDeviceService: DeviceService {
                     hasPlayStore: remote.hasPlayStore, isNativeOnAppleSilicon: remote.isNativeOnAppleSilicon, family: remote.family))
         }
         return SetupStepResult(exitCode: 0, output: "done")
+    }
+
+    func downloadedBytes(since: Date, locations: Locations) async -> Int64 {
+        bytesRequests.append(since)
+        return bytesScript.count > 1 ? bytesScript.removeFirst() : (bytesScript.first ?? 0)
     }
 
     func removeSystemImage(_ image: SystemImage, force: Bool, locations: Locations) async throws -> SetupStepResult {

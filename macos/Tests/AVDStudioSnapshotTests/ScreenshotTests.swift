@@ -156,39 +156,61 @@ final class ScreenshotTests: SnapshotTestCase {
 
     @MainActor
     func testSettingsSystemImagesTab() {
+        let model = imagesModel(catalog: .notLoaded)
+        assertSettingsTab(.images, of: SystemImagesSettingsTab(model: model), named: "settings-images")
+    }
+
+    @MainActor
+    func testSettingsSystemImagesTabWhileDownloading() {
+        let model = imagesModel(
+            catalog: .loaded(SampleData.availableImages),
+            work: .installing(
+                .init(imageIndex: 1, imageCount: 2, imageName: "Android 17 (API 37) · Google Play", bytesDownloaded: 1_240_000_000)))
+        assertScreenshot(
+            of: SystemImagesSettingsTab(model: model), size: SettingsTab.images.size, named: "settings-images-downloading",
+            schemes: [.light])
+    }
+
+    // MARK: Download images dialog
+
+    @MainActor
+    func testDownloadImagesDialog() {
         let model = imagesModel(
             catalog: .loaded(SampleData.availableImages),
             selection: [
                 "system-images;android-37.0;google_apis_playstore;arm64-v8a", "system-images;android-35;google_apis;arm64-v8a",
             ],
             acceptedLicense: true)
-        assertSettingsTab(.images, of: SystemImagesSettingsTab(model: model), named: "settings-images")
-    }
-
-    @MainActor
-    func testSettingsSystemImagesTabBeforeLookingAtGoogle() {
-        let model = imagesModel(catalog: .notLoaded)
         assertScreenshot(
-            of: SystemImagesSettingsTab(model: model), size: SettingsTab.images.size, named: "settings-images-initial",
-            schemes: [.light])
+            of: DownloadImagesView(images: model.systemImages), size: CGSize(width: 540, height: 620), named: "download-images")
     }
 
     @MainActor
-    func testSettingsSystemImagesTabWhileDownloading() {
-        let model = imagesModel(
-            catalog: .loaded(SampleData.availableImages), work: .installing(count: 2),
-            selection: ["system-images;android-37.0;google_apis_playstore;arm64-v8a"], acceptedLicense: true)
+    func testDownloadImagesDialogWhileAskingGoogle() {
+        let model = imagesModel(catalog: .loading)
         assertScreenshot(
-            of: SystemImagesSettingsTab(model: model), size: SettingsTab.images.size, named: "settings-images-downloading",
-            schemes: [.light])
+            of: DownloadImagesView(images: model.systemImages), size: CGSize(width: 540, height: 620),
+            named: "download-images-loading", schemes: [.light])
     }
 
     @MainActor
-    func testSettingsSystemImagesTabWhenGoogleCannotBeReached() {
+    func testDownloadImagesDialogWhenGoogleCannotBeReached() {
         let model = imagesModel(catalog: .failed("sdkmanager could not fetch the list: Unknown host dl.google.com. Check your connection."))
         assertScreenshot(
-            of: SystemImagesSettingsTab(model: model), size: SettingsTab.images.size, named: "settings-images-offline",
-            schemes: [.light])
+            of: DownloadImagesView(images: model.systemImages), size: CGSize(width: 540, height: 620),
+            named: "download-images-offline", schemes: [.light])
+    }
+
+    @MainActor
+    func testDownloadImagesDialogWhileDownloading() {
+        let model = imagesModel(
+            catalog: .loaded(SampleData.availableImages),
+            work: .installing(
+                .init(imageIndex: 2, imageCount: 3, imageName: "Android 15 (API 35) · Google APIs", bytesDownloaded: 2_600_000_000)),
+            selection: ["system-images;android-35;google_apis;arm64-v8a"], acceptedLicense: true)
+        assertScreenshot(
+            of: DownloadImagesView(images: model.systemImages), size: CGSize(width: 540, height: 620),
+            named: "download-images-downloading", schemes: [.light])
     }
 
     @MainActor
@@ -273,6 +295,81 @@ final class ScreenshotTests: SnapshotTestCase {
         assertUpdate(
             .downloaded(SampleData.release, file: URL(fileURLWithPath: "/tmp/AVD-Studio-0.2.0.dmg"), verified: true),
             named: "update-downloaded", schemes: [.light])
+    }
+
+    @MainActor
+    func testUpdateInstallingWithHomebrew() {
+        assertUpdate(
+            .installing(SampleData.release, .homebrew), named: "update-installing-homebrew", installSource: .homebrew, schemes: [.light])
+    }
+
+    @MainActor
+    func testUpdateInstallingFromGitHub() {
+        assertUpdate(.installing(SampleData.release, .replacing), named: "update-installing-github", schemes: [.light])
+    }
+
+    @MainActor
+    func testUpdateInstalled() {
+        assertUpdate(.installed(SampleData.release), named: "update-installed", schemes: [.light])
+    }
+
+    @MainActor
+    func testUpdateInstallFailedBecauseHomebrewIsBehind() {
+        assertUpdate(
+            .installFailed(
+                SampleData.release,
+                reason: InstallError.homebrewBehind(SampleData.release.version).localizedDescription, file: nil),
+            named: "update-install-failed-homebrew", installSource: .homebrew, schemes: [.light])
+    }
+
+    @MainActor
+    func testUpdateInstallFailedWithTheInstallerLeftForTheUser() {
+        assertUpdate(
+            .installFailed(
+                SampleData.release, reason: InstallError.notWritable("/Applications").localizedDescription,
+                file: URL(fileURLWithPath: "/Users/you/Downloads/AVD-Studio-0.2.0.dmg")),
+            named: "update-install-failed-manual", schemes: [.light])
+    }
+
+    // MARK: Settings > Updates
+
+    @MainActor
+    private func assertUpdatesTab(
+        _ state: UpdateState, named name: String, installSource: InstallSource = .manual, schemes: [ColorScheme] = [.light],
+        file: StaticString = #filePath, testName: String = #function, line: UInt = #line
+    ) {
+        assertScreenshot(
+            of: UpdatesSettingsTab().environment(SampleData.updateModel(state: state, installSource: installSource)),
+            size: SettingsTab.updates.size, named: name, schemes: schemes, file: file, testName: testName, line: line)
+    }
+
+    @MainActor
+    func testSettingsUpdatesTabWithAnUpdate() {
+        assertUpdatesTab(.available(SampleData.release), named: "settings-updates-available", schemes: [.light, .dark])
+    }
+
+    @MainActor
+    func testSettingsUpdatesTabForHomebrew() {
+        assertUpdatesTab(.available(SampleData.release), named: "settings-updates-homebrew", installSource: .homebrew)
+    }
+
+    @MainActor
+    func testSettingsUpdatesTabWhenUpToDate() {
+        assertUpdatesTab(.upToDate(checkedAt: Date(timeIntervalSinceNow: -120)), named: "settings-updates-up-to-date")
+    }
+
+    @MainActor
+    func testSettingsUpdatesTabWhileInstalling() {
+        assertUpdatesTab(.installing(SampleData.release, .replacing), named: "settings-updates-installing")
+    }
+
+    @MainActor
+    func testSettingsUpdatesTabAfterAFailure() {
+        assertUpdatesTab(
+            .installFailed(
+                SampleData.release, reason: InstallError.notWritable("/Applications").localizedDescription,
+                file: URL(fileURLWithPath: "/Users/you/Downloads/AVD-Studio-0.2.0.dmg")),
+            named: "settings-updates-failed")
     }
 
     @MainActor
@@ -406,6 +503,7 @@ private struct FailingSetupService: DeviceService {
     func installSystemImages(_ packages: [String], licenseAccepted: Bool, locations: Locations) async throws -> SetupStepResult {
         SetupStepResult(exitCode: 0, output: "")
     }
+    func downloadedBytes(since: Date, locations: Locations) async -> Int64 { 0 }
     func removeSystemImage(_ image: SystemImage, force: Bool, locations: Locations) async throws -> SetupStepResult {
         SetupStepResult(exitCode: 0, output: "")
     }
@@ -438,6 +536,7 @@ private struct ConfigurableCatalogService: DeviceService {
     func installSystemImages(_ packages: [String], licenseAccepted: Bool, locations: Locations) async throws -> SetupStepResult {
         SetupStepResult(exitCode: 0, output: "")
     }
+    func downloadedBytes(since: Date, locations: Locations) async -> Int64 { 0 }
     func removeSystemImage(_ image: SystemImage, force: Bool, locations: Locations) async throws -> SetupStepResult {
         SetupStepResult(exitCode: 0, output: "")
     }

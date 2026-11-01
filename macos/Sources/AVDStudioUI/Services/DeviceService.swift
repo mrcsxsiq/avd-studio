@@ -60,6 +60,9 @@ public protocol DeviceService: Sendable {
     func availableSystemImages(locations: Locations) async throws -> [RemoteSystemImage]
     /// Downloads and installs images. `licenseAccepted` must be true: the user, never the app, agrees to Google's licence.
     func installSystemImages(_ packages: [String], licenseAccepted: Bool, locations: Locations) async throws -> SetupStepResult
+    /// Bytes `sdkmanager` has downloaded into the SDK since `since`, read from the files it writes (it reports no
+    /// percentage and never the size of a package). Poll it while an install runs.
+    func downloadedBytes(since: Date, locations: Locations) async -> Int64
     /// Removes an installed image. Throws when an emulator runs from it, or when devices use it and `force` is false.
     func removeSystemImage(_ image: SystemImage, force: Bool, locations: Locations) async throws -> SetupStepResult
     /// Hardware definitions (`avdmanager list device`). Throws when avdmanager or Java is missing.

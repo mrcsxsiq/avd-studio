@@ -422,4 +422,19 @@ struct KotlinDeviceServiceTests {
         let package = try #require(tv.systemImagePackage)
         #expect(samePackage(package, "system-images;android-34;android-tv;arm64-v8a"))
     }
+
+    @Test func countsWhatSdkmanagerHasDownloadedSinceTheInstallStarted() async throws {
+        try installSDK(at: "Library/Android/sdk")
+        try write("Library/Android/sdk/.sdk/arch/old-archive", String(repeating: "x", count: 5_000))
+        // File times come from the real clock; leave a margin on both sides of "now".
+        try await Task.sleep(for: .milliseconds(1_200))
+        let started = Date()
+        let service = makeService()
+        #expect(await service.downloadedBytes(since: started, locations: Locations()) == 0, "an archive from before does not count")
+
+        try write("Library/Android/sdk/.sdk/arch/new-archive.part", String(repeating: "x", count: 3_000))
+        let during = await service.downloadedBytes(since: started, locations: Locations())
+
+        #expect(during == 3_000)
+    }
 }

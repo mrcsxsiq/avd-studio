@@ -42,7 +42,8 @@ struct AVDStudioApp: App {
         let updates = UpdateModel(
             currentVersion: shortVersion.flatMap(AppVersion.init) ?? AppVersion(major: 0),
             source: GitHubReleaseSource(owner: "mrcsxsiq", repository: "avd-studio"),
-            notifier: SystemUpdateNotifier()
+            notifier: SystemUpdateNotifier(),
+            installer: SystemUpdateInstaller()
         )
         updates.startAutomaticChecks()
         self.updates = updates

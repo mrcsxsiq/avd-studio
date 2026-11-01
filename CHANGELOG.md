@@ -14,6 +14,29 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
 
 ## [Unreleased]
 
+### Added
+
+- **Download More Images…** in Settings > System Images opens a dialog (the list Google offers, the license box and
+  Download) and the download runs in the background with a progress bar: which image, how many of them, and how many
+  gigabytes have arrived. Close the dialog and it keeps going, and the progress shows at the top of the tab.
+  `sdkmanager` reports no percentage and never the size of a package, so the bar moves but does not fill.
+- **Install** in the update window: with Homebrew it runs `brew upgrade --cask` for you; otherwise it downloads the
+  DMG from GitHub, checks its SHA-256 and the app's signature, replaces the app and reopens it. When it cannot (no
+  permission to write to Applications, Homebrew's tap not yet updated, no published checksum) it says why and leaves
+  the installer for you.
+- **Updates** tab in Settings: installed and latest version, what's new, Install, Check for Updates and the automatic
+  check switch (they used to live in General).
+- A **Settings** button (gear) next to "Android SDK ready" in the sidebar. It opens on the Android tab when the SDK
+  needs setup.
+
+### Changed
+
+- System images are downloaded one at a time, so the progress can say which one. If a later image fails, the ones that
+  already arrived stay installed and only the failed one stays selected.
+- "What's new" in the update window draws the release notes' Markdown (headings, lists, bold, code, links) instead of
+  showing it as plain text, and the Homebrew command it offers is fully qualified
+  (`brew upgrade --cask mrcsxsiq/avd-studio/avd-studio`).
+
 ## [0.3.0] - 2026-11-01
 
 ### Added

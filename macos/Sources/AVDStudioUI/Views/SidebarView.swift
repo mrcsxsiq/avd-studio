@@ -1,7 +1,9 @@
+import AppKit
 import SwiftUI
 
 struct SidebarView: View {
     @Bindable var model: AppModel
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         List(selection: $model.sidebarSelection) {
@@ -13,7 +15,13 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
-        .safeAreaInset(edge: .bottom) { SDKStatusFooter(toolchain: model.toolchain, running: model.runningCount) }
+        .safeAreaInset(edge: .bottom) {
+            SDKStatusFooter(toolchain: model.toolchain, running: model.runningCount) {
+                model.prepareSettingsFromSDKStatus()
+                NSApp.activate(ignoringOtherApps: true)
+                openSettings()
+            }
+        }
     }
 
     private func row(_ item: SidebarItem, title: String, symbol: String, tint: Color) -> some View {
@@ -35,6 +43,7 @@ struct SidebarView: View {
 struct SDKStatusFooter: View {
     let toolchain: ToolchainSummary?
     let running: Int
+    let onOpenSettings: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -48,6 +57,12 @@ struct SDKStatusFooter: View {
                     }
                 }
                 Spacer()
+                Button(action: onOpenSettings) {
+                    Image(systemName: "gearshape").frame(width: 22, height: 22).contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .help("Settings (⌘,)")
+                .accessibilityLabel("Settings")
             }
             .padding(.horizontal, 14)
             .padding(.bottom, 10)

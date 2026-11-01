@@ -63,6 +63,7 @@ public struct RootView: View {
                 model: creating,
                 onManageImages: {
                     model.settingsTab = .images
+                    model.systemImages.openPicker()
                     openSettings()
                 }
             ) { name in Task { await model.deviceCreated(named: name) } }

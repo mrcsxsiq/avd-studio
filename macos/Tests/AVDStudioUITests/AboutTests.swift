@@ -62,10 +62,10 @@ struct AboutTests {
 @Suite("Settings tabs")
 @MainActor
 struct SettingsTabTests {
-    @Test func settingsHasGeneralAndroidSystemImagesAndAboutInThatOrder() {
-        #expect(SettingsTab.allCases == [.general, .android, .images, .about])
-        #expect(SettingsTab.allCases.map(\.title) == ["General", "Android", "System Images", "About"])
-        #expect(Set(SettingsTab.allCases.map(\.symbolName)).count == 4)
+    @Test func settingsHasGeneralAndroidSystemImagesUpdatesAndAboutInThatOrder() {
+        #expect(SettingsTab.allCases == [.general, .android, .images, .updates, .about])
+        #expect(SettingsTab.allCases.map(\.title) == ["General", "Android", "System Images", "Updates", "About"])
+        #expect(Set(SettingsTab.allCases.map(\.symbolName)).count == 5)
     }
 
     @Test func theAboutTabIsBigEnoughForTheAboutPage() {

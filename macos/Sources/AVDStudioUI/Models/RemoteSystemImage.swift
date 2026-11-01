@@ -51,6 +51,9 @@ public struct RemoteSystemImage: Identifiable, Hashable, Sendable {
     /// `Android 16 (API 36) · Google Play · arm64-v8a`
     public var displayName: String { "\(versionLabel) · \(tagDisplay) · \(abi)" }
 
+    /// `Android 16 (API 36) · Google Play`, for a progress line (every image offered here is arm64).
+    public var shortName: String { "\(versionLabel) · \(tagDisplay)" }
+
     func settingInstalled(_ installed: Bool) -> RemoteSystemImage {
         RemoteSystemImage(
             packagePath: packagePath, apiLevel: apiLevel, androidVersion: androidVersion, versionLabel: versionLabel,

@@ -62,7 +62,7 @@ and `git tag -d v0.2.0`) and push it again; nothing is published until step 7.
 - Open the release page: the DMG and its `.sha256` file are attached, notes look right.
 - Install the DMG on a clean user account: the app opens (without a warning once notarized), Settings →
   Updates shows the new version.
-- `brew upgrade --cask avd-studio` from the tap picks up the new version (on a Mac that trusted it), and `avdstudio --version` runs.
+- `brew upgrade --cask mrcsxsiq/avd-studio/avd-studio` from the tap picks up the new version (on a Mac that trusted it), and `avdstudio --version` runs.
 - The website's download button shows the new version (it reads the GitHub API).
 
 ## Signing and notarization secrets

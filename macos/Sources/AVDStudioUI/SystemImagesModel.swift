@@ -17,10 +17,28 @@ public final class SystemImagesModel {
         case failed(String)
     }
 
+    /// How a download is going. `sdkmanager` reports no percentage and never the size of a package, so this is what can
+    /// be told for real: which image, how many are left, and how many bytes have arrived so far.
+    public struct DownloadProgress: Equatable, Sendable {
+        /// 1-based position of the image being downloaded.
+        public var imageIndex: Int
+        public var imageCount: Int
+        public var imageName: String
+        /// Bytes downloaded since the whole operation began (all images so far).
+        public var bytesDownloaded: Int64
+
+        public init(imageIndex: Int, imageCount: Int, imageName: String, bytesDownloaded: Int64 = 0) {
+            self.imageIndex = imageIndex
+            self.imageCount = imageCount
+            self.imageName = imageName
+            self.bytesDownloaded = bytesDownloaded
+        }
+    }
+
     /// Something that takes a while and blocks other changes.
     public enum Work: Equatable, Sendable {
         case idle
-        case installing(count: Int)
+        case installing(DownloadProgress)
         case removing(String)
         /// The last install or removal failed; the text is the tail of the tool's output.
         case failed(String)
@@ -30,6 +48,10 @@ public final class SystemImagesModel {
             case .installing, .removing: true
             case .idle, .failed: false
             }
+        }
+
+        var isFailed: Bool {
+            if case .failed = self { true } else { false }
         }
     }
 
@@ -91,6 +113,8 @@ public final class SystemImagesModel {
     /// The user, never the app, agrees to Google's licence.
     public var acceptedLicense = false
     public var pendingRemoval: Removal?
+    /// The "Download Android system images" dialog. Closing it does not stop a download.
+    public var isPickerPresented = false
 
     /// The devices of the app, to warn before removing an image they use. Set by `AppModel`.
     public var devices: [VirtualDevice] = []
@@ -102,11 +126,31 @@ public final class SystemImagesModel {
     }
 
     @ObservationIgnored private let service: any DeviceService
+    @ObservationIgnored private let pollInterval: Duration
+    @ObservationIgnored private let now: @Sendable () -> Date
 
-    public init(service: any DeviceService, locations: Locations = Locations()) {
+    public init(
+        service: any DeviceService, locations: Locations = Locations(), pollInterval: Duration = .milliseconds(500),
+        now: @escaping @Sendable () -> Date = { Date() }
+    ) {
         self.service = service
         self.locations = locations
+        self.pollInterval = pollInterval
+        self.now = now
     }
+
+    // MARK: The download dialog
+
+    /// Opens the dialog and, the first time, asks Google what is available (the user just asked for exactly that).
+    public func openPicker() {
+        isPickerPresented = true
+        switch catalog {
+        case .notLoaded, .failed: Task { await loadCatalog() }
+        case .loading, .loaded: break
+        }
+    }
+
+    public func closePicker() { isPickerPresented = false }
 
     // MARK: Installed
 
@@ -172,23 +216,65 @@ public final class SystemImagesModel {
 
     public func install() async {
         guard canInstall else { return }
-        let packages = selectedImages.map(\.packagePath).sorted()
-        work = .installing(count: packages.count)
+        let images = selectedImages.sorted { $0.packagePath < $1.packagePath }
+        // File times come from a coarser clock than ours.
+        let started = now().addingTimeInterval(-1)
         notice = nil
-        do {
-            let result = try await service.installSystemImages(packages, licenseAccepted: acceptedLicense, locations: locations)
-            guard result.isSuccess else {
-                work = .failed(Self.tail(of: result.output, exitCode: result.exitCode))
-                return
+        var downloaded = 0
+        for (offset, image) in images.enumerated() {
+            let carried = progressBytes
+            work = .installing(
+                DownloadProgress(imageIndex: offset + 1, imageCount: images.count, imageName: image.shortName, bytesDownloaded: carried))
+            let poller = poll(since: started)
+            let outcome: Result<SetupStepResult, Error>
+            do {
+                outcome = .success(
+                    try await service.installSystemImages([image.packagePath], licenseAccepted: acceptedLicense, locations: locations))
+            } catch {
+                outcome = .failure(error)
             }
-            mark(packages, installed: true)
-            selection = []
-            work = .idle
-            notice = packages.count == 1 ? "Downloaded 1 image." : "Downloaded \(packages.count) images."
-            await loadInstalled()
-        } catch {
-            work = .failed(error.localizedDescription)
+            poller.cancel()
+
+            switch outcome {
+            case .success(let result) where result.isSuccess:
+                downloaded += 1
+                mark([image.packagePath], installed: true)
+                selection.remove(image.id)
+            case .success(let result):
+                work = .failed(Self.tail(of: result.output, exitCode: result.exitCode))
+            case .failure(let error):
+                work = .failed(error.localizedDescription)
+            }
+            if case .failed = work { break }
         }
+        if !work.isFailed {
+            work = .idle
+            notice = downloaded == 1 ? "Downloaded 1 image." : "Downloaded \(downloaded) images."
+        }
+        // What did land stays installed even when a later image failed.
+        await loadInstalled()
+    }
+
+    private var progressBytes: Int64 {
+        if case .installing(let progress) = work { progress.bytesDownloaded } else { 0 }
+    }
+
+    /// Reads how much has been downloaded while an install runs and keeps the progress up to date.
+    private func poll(since started: Date) -> Task<Void, Never> {
+        Task { [weak self, service, locations, interval = pollInterval] in
+            while !Task.isCancelled {
+                let bytes = await service.downloadedBytes(since: started, locations: locations)
+                guard !Task.isCancelled else { return }
+                self?.record(downloadedBytes: bytes)
+                try? await Task.sleep(for: interval)
+            }
+        }
+    }
+
+    private func record(downloadedBytes bytes: Int64) {
+        guard case .installing(var progress) = work, bytes > progress.bytesDownloaded else { return }
+        progress.bytesDownloaded = bytes
+        work = .installing(progress)
     }
 
     // MARK: Remove

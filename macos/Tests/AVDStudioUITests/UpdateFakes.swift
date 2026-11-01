@@ -114,3 +114,64 @@ func eventually(_ condition: @MainActor () -> Bool) async -> Bool {
     }
     return condition()
 }
+
+/// A scripted `UpdateInstaller` that records what the model asked of it.
+final class FakeInstaller: UpdateInstaller, @unchecked Sendable {
+    private let lock = NSLock()
+    private var homebrew = false
+    private var brewError: InstallError?
+    private var versionAfterBrew: AppVersion?
+    private var installError: InstallError?
+    private var relaunchError: InstallError?
+    private var brewCalls = 0
+    private var installCalls: [(file: URL, version: AppVersion, app: URL)] = []
+    private var relaunchCalls: [URL] = []
+
+    init(homebrew: Bool = false) { self.homebrew = homebrew }
+
+    /// What `installedVersion(at:)` reports after Homebrew ran (nil = unreadable).
+    func setVersionAfterBrew(_ version: AppVersion?) { lock.withLock { versionAfterBrew = version } }
+    func failBrew(_ error: InstallError) { lock.withLock { brewError = error } }
+    func failInstall(_ error: InstallError) { lock.withLock { installError = error } }
+    func failRelaunch(_ error: InstallError) { lock.withLock { relaunchError = error } }
+
+    var brewUpgrades: Int { lock.withLock { brewCalls } }
+    var installs: [(file: URL, version: AppVersion, app: URL)] { lock.withLock { installCalls } }
+    var relaunches: [URL] { lock.withLock { relaunchCalls } }
+
+    func canUseHomebrew() async -> Bool { lock.withLock { homebrew } }
+
+    func upgradeWithHomebrew() async throws {
+        let error = lock.withLock { () -> InstallError? in
+            brewCalls += 1
+            return brewError
+        }
+        if let error { throw error }
+    }
+
+    func install(diskImage: URL, version: AppVersion, over appURL: URL) async throws {
+        let error = lock.withLock { () -> InstallError? in
+            installCalls.append((diskImage, version, appURL))
+            return installError
+        }
+        if let error { throw error }
+    }
+
+    func installedVersion(at appURL: URL) -> AppVersion? { lock.withLock { versionAfterBrew } }
+
+    func relaunch(appAt appURL: URL) async throws {
+        let error = lock.withLock { () -> InstallError? in
+            relaunchCalls.append(appURL)
+            return relaunchError
+        }
+        if let error { throw error }
+    }
+}
+
+/// Counts how often the model asked the app to quit.
+final class QuitCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    var quits: Int { lock.withLock { count } }
+    @MainActor func quit() { lock.withLock { count += 1 } }
+}

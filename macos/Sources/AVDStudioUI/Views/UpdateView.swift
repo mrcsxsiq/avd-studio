@@ -4,6 +4,7 @@ import SwiftUI
 public struct UpdateView: View {
     @Bindable var model: UpdateModel
     @Environment(\.dismissWindow) private var dismissWindow
+    @Environment(\.locale) private var locale
 
     public init(model: UpdateModel) {
         self.model = model
@@ -43,7 +44,7 @@ public struct UpdateView: View {
                 colors: [.green, .teal],
                 title: "You're up to date",
                 message: "AVD Studio \(model.currentVersion.description) is the latest version.",
-                caption: "Last checked \(Self.relative(date))"
+                caption: "Last checked \(relative(date))"
             )
         case .noReleases(let date):
             status(
@@ -51,7 +52,7 @@ public struct UpdateView: View {
                 colors: [.gray, .blue],
                 title: "No releases published yet",
                 message: "You're running AVD Studio \(model.currentVersion.description). New versions will show up here.",
-                caption: "Last checked \(Self.relative(date))"
+                caption: "Last checked \(relative(date))"
             )
         case .available(let release):
             available(release)
@@ -59,6 +60,12 @@ public struct UpdateView: View {
             downloading(release, progress: progress)
         case .downloaded(let release, _, let verified):
             downloaded(release, verified: verified)
+        case .installing(let release, let phase):
+            installing(release, phase: phase)
+        case .installed(let release):
+            installed(release)
+        case .installFailed(let release, let reason, _):
+            installFailed(release, reason: reason)
         case .failed(let message):
             status(symbol: "exclamationmark.triangle.fill", colors: [.orange, .red], title: "Something went wrong", message: message)
         }
@@ -83,9 +90,72 @@ public struct UpdateView: View {
             Text("A new version is available").font(.title.weight(.bold))
             VersionComparison(current: model.currentVersion, new: release.version)
             releaseDetails(release)
-            if model.installSource == .homebrew { homebrewNote }
-            ReleaseNotes(text: release.notes)
+            if model.canInstallAutomatically { methodNote } else if model.installSource == .homebrew { homebrewNote }
+            ReleaseNotesCard(notes: release.notes)
         }
+    }
+
+    private func installing(_ release: AppRelease, phase: InstallPhase) -> some View {
+        VStack(spacing: 18) {
+            HeroIcon(symbol: "arrow.down.circle.fill", colors: [.blue, .purple])
+            Text("Updating to \(release.version.description)…").font(.title.weight(.bold))
+            VersionComparison(current: model.currentVersion, new: release.version)
+            VStack(spacing: 8) {
+                ProgressView().progressViewStyle(.linear)
+                Text(
+                    phase == .homebrew
+                        ? "Homebrew is updating AVD Studio. This can take a minute."
+                        : "Replacing AVD Studio with the new version."
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: 380)
+        }
+    }
+
+    private func installed(_ release: AppRelease) -> some View {
+        status(
+            symbol: "checkmark.circle.fill",
+            colors: [.green, .teal],
+            title: "Version \(release.version.description) is installed",
+            message: "AVD Studio is reopening."
+        )
+    }
+
+    private func installFailed(_ release: AppRelease, reason: String) -> some View {
+        VStack(spacing: 14) {
+            HeroIcon(symbol: "exclamationmark.triangle.fill", colors: [.orange, .red])
+            Text("The update did not finish").font(.title.weight(.bold))
+            VersionComparison(current: model.currentVersion, new: release.version)
+            Text(reason)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .textSelection(.enabled)
+                .frame(maxWidth: 420)
+        }
+    }
+
+    /// How "Install" will get the new version here.
+    private var methodNote: some View {
+        let homebrew = model.installSource == .homebrew
+        return VStack(alignment: .leading, spacing: 6) {
+            Label(
+                homebrew ? "Installed with Homebrew" : "Install from GitHub",
+                systemImage: homebrew ? "mug.fill" : "arrow.down.to.line.circle.fill"
+            )
+            .font(.headline)
+            Text(
+                homebrew
+                    ? "Install runs the Homebrew upgrade for you, so Homebrew and AVD Studio stay in sync."
+                    : "Install downloads the new version from GitHub, checks it, replaces this copy and reopens AVD Studio."
+            )
+            .font(.callout)
+            .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .frame(maxWidth: 460, alignment: .leading)
+        .background(.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func downloading(_ release: AppRelease, progress: Double) -> some View {
@@ -122,8 +192,8 @@ public struct UpdateView: View {
 
     private func releaseDetails(_ release: AppRelease) -> some View {
         let parts = [
-            release.publishedAt.map { "Released " + $0.formatted(date: .abbreviated, time: .omitted) },
-            release.asset?.size.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) },
+            release.publishedAt.map { "Released " + $0.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(locale)) },
+            release.asset?.size.map { $0.formatted(ByteCountFormatStyle(style: .file, locale: locale)) },
         ].compactMap { $0 }
         return Text(parts.joined(separator: " · ")).font(.callout).foregroundStyle(.secondary)
     }
@@ -162,7 +232,13 @@ public struct UpdateView: View {
                 Button("Try Again") { Task { await model.checkForUpdates() } }
             case .available(let release):
                 Button("Not Now") { dismissWindow(id: "updates") }
-                if model.installSource == .homebrew {
+                if model.canInstallAutomatically {
+                    if release.asset == nil && model.installSource != .homebrew {
+                        Button("Open Release Page") { model.openReleasePage() }.keyboardShortcut(.defaultAction)
+                    } else {
+                        Button("Install \(release.version.description)") { model.install() }.keyboardShortcut(.defaultAction)
+                    }
+                } else if model.installSource == .homebrew {
                     Button("Copy Brew Command") { Clipboard.copy(InstallSource.brewUpgradeCommand) }
                         .keyboardShortcut(.defaultAction)
                 } else {
@@ -174,6 +250,19 @@ public struct UpdateView: View {
             case .downloaded:
                 Button("Show in Finder") { model.revealDownload() }
                 Button("Open Installer") { model.openInstaller() }.keyboardShortcut(.defaultAction)
+            case .installing:
+                Button("Installing…") {}.disabled(true)
+            case .installed:
+                Button("Reopening…") {}.disabled(true)
+            case .installFailed:
+                if model.downloadedFile != nil {
+                    Button("Show in Finder") { model.revealDownload() }
+                    Button("Open Installer") { model.openInstaller() }
+                }
+                if model.installSource == .homebrew {
+                    Button("Copy Brew Command") { Clipboard.copy(InstallSource.brewUpgradeCommand) }
+                }
+                Button("Try Again") { model.install() }.keyboardShortcut(.defaultAction)
             }
         }
     }
@@ -183,8 +272,8 @@ public struct UpdateView: View {
         return "Download \(release.version.description)"
     }
 
-    private static func relative(_ date: Date) -> String {
-        date.formatted(.relative(presentation: .named))
+    private func relative(_ date: Date) -> String {
+        date.formatted(.relative(presentation: .named).locale(locale))
     }
 }
 
@@ -211,29 +300,6 @@ struct VersionComparison: View {
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(tint.opacity(0.35)))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title) version \(version.description)")
-    }
-}
-
-private struct ReleaseNotes: View {
-    let text: String
-
-    var body: some View {
-        if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("What's new").font(.headline)
-                Text(attributed)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(14)
-                    .background(.quaternary.opacity(0.6), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-            .frame(maxWidth: 460)
-        }
-    }
-
-    private var attributed: AttributedString {
-        let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        return (try? AttributedString(markdown: text, options: options)) ?? AttributedString(text)
     }
 }
 

@@ -12,7 +12,18 @@ public enum UpdateState: Equatable, Sendable {
     case downloading(AppRelease, progress: Double)
     /// `verified` is true when the file's SHA-256 matched the checksum published with the release.
     case downloaded(AppRelease, file: URL, verified: Bool)
+    /// Putting the new version in place: Homebrew is upgrading it, or the downloaded app is replacing this one.
+    case installing(AppRelease, InstallPhase)
+    /// The new version is in place and the app is about to reopen itself.
+    case installed(AppRelease)
+    /// The install did not work. `file` is the downloaded installer when there is one, for installing it by hand.
+    case installFailed(AppRelease, reason: String, file: URL?)
     case failed(String)
+}
+
+public enum InstallPhase: Equatable, Sendable {
+    case homebrew
+    case replacing
 }
 
 /// Tells the user, outside the app, that a new version exists.
@@ -55,11 +66,16 @@ public final class UpdateModel {
     @ObservationIgnored private let client: any HTTPClient
     @ObservationIgnored private let notifier: (any UpdateNotifier)?
     @ObservationIgnored private let opener: any FileOpening
+    @ObservationIgnored private let installer: (any UpdateInstaller)?
+    @ObservationIgnored private let appURL: URL
+    @ObservationIgnored private let quit: @MainActor () -> Void
+    @ObservationIgnored private let relaunchDelay: Duration
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let downloadsDirectory: URL
     @ObservationIgnored private let now: @Sendable () -> Date
     @ObservationIgnored private var checkLoop: Task<Void, Never>?
     @ObservationIgnored private var downloadTask: Task<Void, Never>?
+    @ObservationIgnored private var installTask: Task<Void, Never>?
 
     public init(
         currentVersion: AppVersion,
@@ -67,6 +83,10 @@ public final class UpdateModel {
         client: any HTTPClient = URLSessionHTTPClient(),
         notifier: (any UpdateNotifier)? = nil,
         opener: any FileOpening = WorkspaceFileOpener(),
+        installer: (any UpdateInstaller)? = nil,
+        appURL: URL = Bundle.main.bundleURL,
+        quit: @escaping @MainActor () -> Void = { NSApp.terminate(nil) },
+        relaunchDelay: Duration = .seconds(1),
         installSource: InstallSource = .detect(),
         state: UpdateState = .idle,
         defaults: UserDefaults = .standard,
@@ -79,6 +99,10 @@ public final class UpdateModel {
         self.client = client
         self.notifier = notifier
         self.opener = opener
+        self.installer = installer
+        self.appURL = appURL
+        self.quit = quit
+        self.relaunchDelay = relaunchDelay
         self.installSource = installSource
         self.defaults = defaults
         self.downloadsDirectory = downloadsDirectory
@@ -90,12 +114,17 @@ public final class UpdateModel {
     /// The version found by the last check, when it is newer than the running one.
     public var availableRelease: AppRelease? {
         switch state {
-        case .available(let release), .downloading(let release, _), .downloaded(let release, _, _): release
+        case .available(let release), .downloading(let release, _), .downloaded(let release, _, _), .installing(let release, _),
+            .installed(let release), .installFailed(let release, _, _):
+            release
         default: nil
         }
     }
 
     public var hasUpdate: Bool { availableRelease != nil }
+
+    /// True when "Install" can put the new version in place by itself, rather than only downloading it.
+    public var canInstallAutomatically: Bool { installer != nil }
 
     // MARK: Checking
 
@@ -103,7 +132,10 @@ public final class UpdateModel {
     ///   triggers a system notification, once per version.
     public func checkForUpdates(userInitiated: Bool = true) async {
         if case .checking = state { return }
-        if case .downloading = state { return }
+        switch state {
+        case .downloading, .installing, .installed: return
+        default: break
+        }
         let previous = state
         state = .checking
         do {
@@ -154,9 +186,16 @@ public final class UpdateModel {
 
     public func downloadLatest() async {
         guard case .available(let release) = state else { return }
+        guard let downloaded = await download(release) else { return }
+        state = .downloaded(release, file: downloaded.file, verified: downloaded.verified)
+    }
+
+    /// Downloads the installer next to the user's other downloads and checks it against the published checksum.
+    /// Sets the state itself when it fails or is cancelled and returns nil.
+    private func download(_ release: AppRelease) async -> (file: URL, verified: Bool)? {
         guard let asset = release.asset else {
             state = .failed(UpdateError.noInstaller.localizedDescription)
-            return
+            return nil
         }
         state = .downloading(release, progress: 0)
         let destination = downloadsDirectory.appendingPathComponent(asset.name)
@@ -170,11 +209,11 @@ public final class UpdateModel {
                 guard try await expectedChecksum(at: checksumURL) == actual else {
                     try? FileManager.default.removeItem(at: destination)
                     state = .failed(UpdateError.checksumMismatch.localizedDescription)
-                    return
+                    return nil
                 }
                 verified = true
             }
-            state = .downloaded(release, file: destination, verified: verified)
+            return (destination, verified)
         } catch is CancellationError {
             state = .available(release)
         } catch let error as URLError where error.code == .cancelled {
@@ -182,14 +221,98 @@ public final class UpdateModel {
         } catch {
             state = .failed(error.localizedDescription)
         }
+        return nil
+    }
+
+    // MARK: Installing
+
+    /// Puts the new version in place and reopens the app: through Homebrew when it manages this app, otherwise by
+    /// downloading from GitHub and replacing the app. Without an installer (previews) it only downloads.
+    public func install() {
+        installTask = Task { [weak self] in await self?.performInstall() }
+    }
+
+    public func performInstall() async {
+        let release: AppRelease
+        switch state {
+        case .available(let found), .installFailed(let found, _, _), .downloaded(let found, _, _): release = found
+        default: return
+        }
+        guard let installer else {
+            if case .available = state { await downloadLatest() }
+            return
+        }
+        if await installer.canUseHomebrew() {
+            await installWithHomebrew(release, using: installer)
+        } else {
+            await installFromGitHub(release, using: installer)
+        }
+    }
+
+    private func installWithHomebrew(_ release: AppRelease, using installer: any UpdateInstaller) async {
+        state = .installing(release, .homebrew)
+        do {
+            try await installer.upgradeWithHomebrew()
+        } catch {
+            state = .installFailed(release, reason: describe(error), file: nil)
+            return
+        }
+        // Homebrew's tap is updated a little after a release is published; it can finish "successfully" on the old build.
+        guard let installed = installer.installedVersion(at: appURL), installed >= release.version else {
+            state = .installFailed(release, reason: InstallError.homebrewBehind(release.version).localizedDescription, file: nil)
+            return
+        }
+        await reopen(after: release, using: installer)
+    }
+
+    private func installFromGitHub(_ release: AppRelease, using installer: any UpdateInstaller) async {
+        guard let downloaded = await download(release) else { return }
+        guard downloaded.verified else {
+            state = .installFailed(release, reason: InstallError.noChecksum.localizedDescription, file: downloaded.file)
+            return
+        }
+        state = .installing(release, .replacing)
+        do {
+            try await installer.install(diskImage: downloaded.file, version: release.version, over: appURL)
+        } catch {
+            state = .installFailed(release, reason: describe(error), file: downloaded.file)
+            return
+        }
+        try? FileManager.default.removeItem(at: downloaded.file)
+        await reopen(after: release, using: installer)
+    }
+
+    private func reopen(after release: AppRelease, using installer: any UpdateInstaller) async {
+        state = .installed(release)
+        // A moment to read "Updated", then the new copy opens and this one quits.
+        try? await Task.sleep(for: relaunchDelay)
+        do {
+            try await installer.relaunch(appAt: appURL)
+            quit()
+        } catch {
+            state = .installFailed(release, reason: describe(InstallError.relaunchFailed(describe(error))), file: nil)
+        }
+    }
+
+    private func describe(_ error: Error) -> String {
+        (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
     }
 
     public func openInstaller() {
-        if case .downloaded(_, let file, _) = state { opener.open(file) }
+        if let file = downloadedFile { opener.open(file) }
     }
 
     public func revealDownload() {
-        if case .downloaded(_, let file, _) = state { opener.reveal(file) }
+        if let file = downloadedFile { opener.reveal(file) }
+    }
+
+    /// The installer on disk, when there is one to open by hand.
+    public var downloadedFile: URL? {
+        switch state {
+        case .downloaded(_, let file, _): file
+        case .installFailed(_, _, let file): file
+        default: nil
+        }
     }
 
     public func openReleasePage() {

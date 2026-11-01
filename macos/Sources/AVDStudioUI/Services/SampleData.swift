@@ -78,12 +78,18 @@ public enum SampleData {
         version: AppVersion(major: 0, minor: 2, patch: 0),
         title: "AVD Studio 0.2.0",
         notes: """
-            **Highlights**
-            - Create virtual devices from the app
-            - Install system images without opening Android Studio
-            - Faster start-up when you have many devices
+            ### Added
 
-            Fixes: the menu bar item now updates right after an emulator exits.
+            - **System Images** tab in Settings: see what is installed, download more Android versions and remove what you
+              no longer need.
+            - `avdstudio images --available` lists what Google offers.
+            - Install new versions of AVD Studio from the update window.
+
+            ### Fixed
+
+            - The menu bar item now updates right after an emulator exits.
+
+            **Full Changelog**: https://github.com/mrcsxsiq/avd-studio/compare/v0.1.0...v0.2.0
             """,
         pageURL: URL(string: "https://github.com/mrcsxsiq/avd-studio/releases/tag/v0.2.0")!,
         publishedAt: Date(timeIntervalSince1970: 1_793_000_000),
@@ -101,6 +107,7 @@ public enum SampleData {
         UpdateModel(
             currentVersion: AppVersion(major: 0, minor: 1, patch: 0),
             source: PreviewReleaseSource(),
+            installer: PreviewUpdateInstaller(),
             installSource: installSource,
             state: state,
             defaults: UserDefaults(suiteName: "avdstudio.sample.updates.\(UUID())")!
@@ -258,6 +265,7 @@ public struct PreviewDeviceService: DeviceService {
     public func installSystemImages(_ packages: [String], licenseAccepted: Bool, locations: Locations) async throws -> SetupStepResult {
         SetupStepResult(exitCode: 0, output: "")
     }
+    public func downloadedBytes(since: Date, locations: Locations) async -> Int64 { 0 }
     public func removeSystemImage(_ image: SystemImage, force: Bool, locations: Locations) async throws -> SetupStepResult {
         SetupStepResult(exitCode: 0, output: "")
     }
@@ -265,6 +273,16 @@ public struct PreviewDeviceService: DeviceService {
     public func validateDeviceName(_ name: String, locations: Locations) async -> String? { nil }
     public func createDevice(_ request: CreateDeviceRequest, locations: Locations) async throws {}
     public func deleteDevice(_ device: VirtualDevice, locations: Locations) async throws {}
+}
+
+/// Pretends to install; backs previews and screenshot tests.
+public struct PreviewUpdateInstaller: UpdateInstaller {
+    public init() {}
+    public func canUseHomebrew() async -> Bool { false }
+    public func upgradeWithHomebrew() async throws {}
+    public func install(diskImage: URL, version: AppVersion, over appURL: URL) async throws {}
+    public func installedVersion(at appURL: URL) -> AppVersion? { nil }
+    public func relaunch(appAt appURL: URL) async throws {}
 }
 
 /// Always reports "nothing published"; backs previews.

@@ -11,21 +11,16 @@ struct SystemImagesSettingsTab: View {
 
     var body: some View {
         @Bindable var images = model.systemImages
-        VStack(spacing: 0) {
-            Form {
-                if let status = statusMessage { Section { status } }
-                installedSection
-                downloadSection(images: images)
-            }
-            .formStyle(.grouped)
-            if case .loaded = images.catalog {
-                Divider()
-                downloadBar(images: images)
-            }
+        Form {
+            if let status = statusMessage { Section { status } }
+            installedSection
+            downloadSection
         }
+        .formStyle(.grouped)
         .frame(width: SettingsTab.images.size.width, height: SettingsTab.images.size.height)
         // Read again every time the tab opens: Android Studio or a terminal may have changed the folder.
         .task { await images.loadInstalled() }
+        .sheet(isPresented: $images.isPickerPresented) { DownloadImagesView(images: images) }
         .confirmationDialog(
             "Remove this system image?",
             isPresented: Binding(get: { images.pendingRemoval != nil }, set: { if !$0 { images.cancelRemoval() } }),
@@ -75,111 +70,30 @@ struct SystemImagesSettingsTab: View {
 
     // MARK: Download
 
-    private func downloadSection(images: SystemImagesModel) -> some View {
-        @Bindable var images = images
-        return Section {
-            switch images.catalog {
-            case .notLoaded:
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("See which Android versions Google offers for Apple Silicon and pick the ones you need.")
-                    Button("Show Available Images") { Task { await images.loadCatalog() } }
-                        .disabled(images.work.isBusy)
-                }
-            case .loading:
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("Asking Google for the list. This takes a few seconds.").foregroundStyle(.secondary)
-                }
-            case .failed(let message):
-                VStack(alignment: .leading, spacing: 8) {
-                    Label(message, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                    Button("Try Again") { Task { await images.loadCatalog() } }
-                }
-            case .loaded:
-                loadedContent(images: images)
+    private var downloadSection: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(
+                    "Pick other Android versions from the list Google publishes for Apple Silicon: Google Play, Google APIs, TV, Wear OS and more."
+                )
+                Button("Download More Images…") { images.openPicker() }
+                    .buttonStyle(.borderedProminent)
             }
         } header: {
             Text("Download more")
         } footer: {
             Text(
                 "Images are large, often over 1 GB each. AVD Studio asks Google's servers (through sdkmanager) "
-                    + "only when you press a button here.")
+                    + "only when you open the list. The download keeps going if you close the window.")
         }
-    }
-
-    @ViewBuilder
-    private func loadedContent(images: SystemImagesModel) -> some View {
-        @Bindable var images = images
-        Picker("Show", selection: $images.familyFilter) {
-            ForEach(SystemImagesModel.FamilyFilter.allCases) { Text($0.title).tag($0) }
-        }
-        Toggle("Include previews and test images", isOn: $images.showAdvanced)
-
-        let groups = images.downloadableGroups
-        if groups.isEmpty {
-            Text("Everything that matches is already installed.").foregroundStyle(.secondary)
-        } else {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(groups, id: \.title) { group in
-                        Text(group.title)
-                            .font(.subheadline.weight(.semibold))
-                            .padding(.top, 8)
-                            .padding(.bottom, 2)
-                        ForEach(group.images) { image in
-                            RemoteImageRow(
-                                image: image,
-                                isSelected: Binding(get: { images.isSelected(image) }, set: { _ in images.toggle(image) })
-                            )
-                            .disabled(images.work.isBusy)
-                        }
-                    }
-                }
-                .padding(.horizontal, 8)
-                .padding(.bottom, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .frame(height: 200)
-            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        }
-    }
-
-    /// Always in view: the licence the user must agree to, and the button that starts the download.
-    private func downloadBar(images: SystemImagesModel) -> some View {
-        @Bindable var images = images
-        return HStack(alignment: .center, spacing: 16) {
-            VStack(alignment: .leading, spacing: 2) {
-                Toggle(isOn: $images.acceptedLicense) {
-                    Text("I have read and accept the Android SDK License Agreement")
-                }
-                .toggleStyle(.checkbox)
-                Button("Read the agreement") { openURL(SetupPlan.licenseURL) }.buttonStyle(.link).padding(.leading, 20)
-            }
-            Spacer(minLength: 8)
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(Self.selectionSummary(count: images.selection.count)).font(.caption).foregroundStyle(.secondary)
-                Button(Self.downloadTitle(count: images.selection.count)) { Task { await images.install() } }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!images.canInstall)
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
     }
 
     // MARK: Status
 
     private var statusMessage: AnyView? {
         switch images.work {
-        case .installing(let count):
-            return AnyView(
-                HStack(spacing: 10) {
-                    ProgressView().controlSize(.small)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(count == 1 ? "Downloading 1 image…" : "Downloading \(count) images…").fontWeight(.medium)
-                        Text("This can take several minutes. You can keep using AVD Studio.").font(.callout).foregroundStyle(.secondary)
-                    }
-                })
+        case .installing(let progress):
+            return AnyView(DownloadProgressView(progress: progress))
         case .removing(let name):
             return AnyView(
                 HStack(spacing: 10) {
@@ -283,35 +197,5 @@ struct InstalledImageRow: View {
         case .desktop: .desktop
         case .xr: .xr
         }
-    }
-}
-
-/// One image Google offers, with a checkbox.
-struct RemoteImageRow: View {
-    let image: RemoteSystemImage
-    @Binding var isSelected: Bool
-
-    var body: some View {
-        Toggle(isOn: $isSelected) {
-            HStack(spacing: 6) {
-                Text(image.tagDisplay)
-                if image.hasPlayStore { Image(systemName: "play.square.fill").foregroundStyle(.green).help("Includes Google Play") }
-                if image.isPreview { badge("Preview", color: .orange) }
-                if image.isAutomatedTestImage { badge("Test image", color: .gray) }
-                Spacer(minLength: 8)
-                Text(image.revision).font(.caption).foregroundStyle(.secondary).monospacedDigit()
-            }
-        }
-        .toggleStyle(.checkbox)
-        .accessibilityLabel(image.displayName)
-    }
-
-    private func badge(_ text: String, color: Color) -> some View {
-        Text(text)
-            .font(.caption2.weight(.semibold))
-            .padding(.horizontal, 5)
-            .padding(.vertical, 1)
-            .foregroundStyle(color)
-            .background(color.opacity(0.15), in: Capsule())
     }
 }

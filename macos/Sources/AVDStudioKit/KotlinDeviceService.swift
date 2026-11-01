@@ -116,6 +116,12 @@ public final class KotlinDeviceService: DeviceService, @unchecked Sendable {
         }.value
     }
 
+    public func downloadedBytes(since: Date, locations: Locations) async -> Int64 {
+        await Task.detached { [self] in
+            core.sdkDownloadedBytes(sinceEpochMillis: Int64(since.timeIntervalSince1970 * 1000), sdkPathOverride: locations.sdkPath)
+        }.value
+    }
+
     public func removeSystemImage(_ image: AVDStudioUI.SystemImage, force: Bool, locations: Locations) async throws -> SetupStepResult {
         try await Task.detached { [self] in
             do {

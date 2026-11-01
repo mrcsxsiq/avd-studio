@@ -33,10 +33,10 @@
 - **Start and stop with one click or a double-click.** Per-device actions: start, stop, cold boot, wipe data and start (with confirmation), show in Finder, copy name. Emulators started from Android Studio or a terminal show up as running too.
 - **Menu bar.** Every device is listed with a play button (stopped) or a stop button (running), plus New Device…, so you can start, test and stop emulators without opening the window. Pick the icon from ten options (a phone, a tablet, a watch, a little droid…); a dot shows when something is running.
 - **Set up Android in one click.** No SDK? AVD Studio installs Google's command-line tools, a Java runtime, the emulator and the system images your devices need (through Homebrew and `sdkmanager`). Without Homebrew it gives you a script for Terminal. Already have an SDK? Point to it.
-- **Manage Android system images.** Settings > System Images lists what is installed with the room each image takes and which devices use it, downloads more Android versions (phones, tablets, TV, Wear OS, Automotive, Desktop, XR; Apple Silicon images only) once you accept Google's license, and removes the ones you no longer need. The New Device sheet links straight to it.
+- **Manage Android system images.** Settings > System Images lists what is installed with the room each image takes and which devices use it, downloads more Android versions from a dialog (phones, tablets, TV, Wear OS, Automotive, Desktop, XR; Apple Silicon images only) once you accept Google's license, with a progress bar while it downloads in the background, and removes the ones you no longer need. The New Device sheet links straight to it.
 - **Your folders, your rules.** Choose the SDK folder and the virtual-device folder (for example on an external SSD). Nothing is moved and Android Studio's settings are untouched.
 - **Light, dark or system theme.**
-- **Updates built in.** Shows the installed version next to the new one with release notes, downloads the DMG and verifies its SHA-256, and notifies you when a version is released. Automatic checks can be turned off.
+- **Updates built in.** Shows the installed version next to the new one with the release notes (Markdown drawn properly) and an **Install** button. With Homebrew it runs the upgrade for you; otherwise it downloads the DMG from GitHub, verifies its SHA-256 and the app's signature, replaces the app and reopens it. It notifies you when a version is released, and automatic checks can be turned off.
 - **A real CLI.** `avdstudio list`, `start`, `create`, `delete`, `images`, `devices`, `doctor`, `setup` and `sdk-path`, with `--json` for scripts.
 - **No analytics, no accounts.** The only network traffic of AVD Studio itself is the optional update check against the GitHub Releases API. Android packages (setup, system images) are downloaded by Google's own `sdkmanager`, and only when you ask for them.
 
@@ -100,7 +100,7 @@ brew trust --cask mrcsxsiq/avd-studio/avd-studio
 # or, to trust everything this tap will ever publish: brew trust --tap mrcsxsiq/avd-studio
 ```
 
-Update later with `brew upgrade --cask avd-studio` (the app can also tell you when a new version is out).
+Update later with `brew upgrade --cask mrcsxsiq/avd-studio/avd-studio`, or press **Install** when the app tells you a new version is out.
 `brew untrust` takes trust back.
 
 Prefer to build it yourself? See [Build from source](#build-from-source).
@@ -164,9 +164,10 @@ Then run `avdstudio doctor` again to check.
 
 | Tab | What you can change |
 | --- | --- |
-| General | Theme (System, Light or Dark); where AVD Studio appears: the Dock, the menu bar or both (never neither, so you can always get back in), and one of ten menu bar icons; automatic update checks and Check for Updates… |
+| General | Theme (System, Light or Dark); where AVD Studio appears: the Dock, the menu bar or both (never neither, so you can always get back in), and one of ten menu bar icons |
 | Android | The SDK folder (leave empty for auto-detection); the folder that holds the `.avd` files; Diagnostics (the same checks as `avdstudio doctor`) with Fix Automatically… |
-| System Images | The installed images with their size and the devices that use them; **Show Available Images** asks Google for what can be downloaded (filter by device type, previews and test images are hidden until you ask), then tick the images, accept the license and press Download; the trash button removes an image (devices that use it are listed first, and a running emulator blocks it). |
+| System Images | The installed images with their size and the devices that use them; **Download More Images…** opens a dialog that asks Google for what can be downloaded (filter by device type; previews and test images are hidden until you ask): tick the images, accept the license and press Download. It downloads in the background with a progress bar (which image and how many GB have arrived) and keeps going if you close the dialog; the trash button removes an image (devices that use it are listed first, and a running emulator blocks it). |
+| Updates | The installed and latest versions, what's new in the release (Markdown rendered), **Install** (Homebrew upgrade or download from GitHub, then the app reopens), Check for Updates and the switch for automatic checks. |
 | About | The version, a **Star on GitHub** button and links to the website, changelog and license. Also reachable from the menu bar popover (the ⓘ icon) and the app menu. |
 
 ## How it works

@@ -6,7 +6,8 @@ public enum InstallSource: Equatable, Sendable {
     case homebrew
     case manual
 
-    public static let brewUpgradeCommand = "brew upgrade --cask avd-studio"
+    /// Fully qualified, so it works without trusting the tap first and cannot clash with another tap's cask.
+    public static let brewUpgradeCommand = "brew upgrade --cask mrcsxsiq/avd-studio/avd-studio"
 
     public static func detect(
         environment: [String: String] = ProcessInfo.processInfo.environment,

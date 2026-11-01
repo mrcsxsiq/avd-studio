@@ -171,7 +171,7 @@ struct SystemImagesModelTests {
         #expect(await service.installs.isEmpty)
     }
 
-    @Test func downloadsTheSelectedImagesAfterTheLicenseIsAccepted() async {
+    @Test func downloadsTheSelectedImagesOneByOneAfterTheLicenseIsAccepted() async {
         let (model, service) = await loadedModel()
         model.toggle(image(play37))
         model.toggle(image(apis37))
@@ -182,14 +182,157 @@ struct SystemImagesModelTests {
         await model.install()
 
         let installs = await service.installs
-        #expect(installs.count == 1)
-        #expect(installs[0].packages == [apis37, play37].sorted())
-        #expect(installs[0].licenseAccepted, "the service is only ever told the user accepted")
+        #expect(installs.map { $0.packages } == [[apis37], [play37]], "one image per call, in a stable order, so progress can say which")
+        #expect(installs.allSatisfy { $0.licenseAccepted }, "the service is only ever told the user accepted")
         #expect(model.work == .idle)
         #expect(model.notice == "Downloaded 2 images.")
         #expect(model.selection.isEmpty)
         #expect(model.installed.contains { $0.packagePath == play37 }, "the installed list is read again")
         #expect(!model.downloadable.contains { $0.packagePath == play37 }, "an installed image is no longer offered")
+    }
+
+    @Test func whenOneImageFailsTheOnesThatArrivedStayInstalled() async {
+        let (model, service) = await loadedModel()
+        await service.setFailingPackages([play37])
+        model.toggle(image(play37))
+        model.toggle(image(apis37))
+        model.acceptedLicense = true
+
+        await model.install()
+
+        guard case .failed(let output) = model.work else {
+            Issue.record("expected a failure, got \(model.work)")
+            return
+        }
+        #expect(output.contains("download failed"))
+        #expect(model.installed.contains { $0.packagePath == apis37 }, "the first image made it")
+        #expect(!model.installed.contains { $0.packagePath == play37 })
+        #expect(model.selection == [play37], "only the one that failed stays selected for another try")
+        #expect(!model.downloadable.contains { $0.packagePath == apis37 })
+    }
+
+    @Test func stopsAtTheFirstFailureInsteadOfTryingTheRest() async {
+        let (model, service) = await loadedModel()
+        await service.setFailingPackages([apis37])  // sorts first
+        model.toggle(image(play37))
+        model.toggle(image(apis37))
+        model.acceptedLicense = true
+
+        await model.install()
+
+        #expect(await service.installs.map { $0.packages } == [[apis37]], "the second image is not attempted after the first failed")
+        #expect(model.work.isFailedForTest)
+    }
+
+    // MARK: Progress
+
+    @Test func showsWhichImageIsComingAndHowManyBytesArrived() async {
+        let service = FakeDeviceService()
+        await service.setInstallDelay(.milliseconds(250))
+        await service.setBytesScript([0, 400_000_000, 1_500_000_000])
+        let model = SystemImagesModel(service: service, pollInterval: .milliseconds(10))
+        await model.loadInstalled()
+        await model.loadCatalog()
+        model.toggle(image(wear36))
+        model.acceptedLicense = true
+
+        let run = Task { await model.install() }
+        let sawBytes = await eventually {
+            if case .installing(let progress) = model.work { progress.bytesDownloaded >= 1_500_000_000 } else { false }
+        }
+
+        #expect(sawBytes, "the bar's text follows the bytes that reached the disk")
+        if case .installing(let progress) = model.work {
+            #expect(progress.imageIndex == 1 && progress.imageCount == 1)
+            #expect(progress.imageName == "Android 16 (API 36) · Wear OS")
+        }
+        await run.value
+        #expect(model.work == .idle)
+    }
+
+    @Test func theByteCountNeverGoesBackwards() async {
+        let service = FakeDeviceService()
+        await service.setInstallDelay(.milliseconds(200))
+        await service.setBytesScript([900, 100, 100])  // a file being replaced can look smaller for a moment
+        let model = SystemImagesModel(service: service, pollInterval: .milliseconds(10))
+        await model.loadInstalled()
+        await model.loadCatalog()
+        model.toggle(image(wear36))
+        model.acceptedLicense = true
+
+        let run = Task { await model.install() }
+        _ = await eventually { if case .installing(let progress) = model.work { progress.bytesDownloaded >= 900 } else { false } }
+        try? await Task.sleep(for: .milliseconds(60))
+
+        if case .installing(let progress) = model.work { #expect(progress.bytesDownloaded == 900) }
+        await run.value
+    }
+
+    @Test func countsOnlyWhatArrivesAfterTheInstallStarted() async {
+        let started = Date(timeIntervalSince1970: 1_800_000_000)
+        let service = FakeDeviceService()
+        let model = SystemImagesModel(service: service, pollInterval: .milliseconds(5), now: { started })
+        await model.loadInstalled()
+        await model.loadCatalog()
+        model.toggle(image(wear36))
+        model.acceptedLicense = true
+
+        await model.install()
+
+        let since = await service.bytesRequests
+        #expect(!since.isEmpty)
+        #expect(since.allSatisfy { $0 == started.addingTimeInterval(-1) }, "a little slack for the file system's coarser clock")
+    }
+
+    // MARK: The dialog
+
+    @Test func openingTheDialogAsksGoogleForTheListOnce() async {
+        let (model, service) = make()
+
+        model.openPicker()
+        #expect(model.isPickerPresented)
+        let loaded = await eventually { if case .loaded = model.catalog { true } else { false } }
+        #expect(loaded)
+
+        model.closePicker()
+        #expect(!model.isPickerPresented)
+        model.openPicker()
+        try? await Task.sleep(for: .milliseconds(30))
+        #expect(await service.availableRequests == 1, "reopening shows the list it already has")
+    }
+
+    @Test func openingTheDialogAfterAFailureTriesAgain() async {
+        let (model, service) = make()
+        await service.setAvailableError(ServiceError("offline"))
+        model.openPicker()
+        _ = await eventually { model.catalog == .failed("offline") }
+
+        await service.setAvailableError(nil)
+        model.closePicker()
+        model.openPicker()
+
+        let recovered = await eventually { if case .loaded = model.catalog { true } else { false } }
+        #expect(recovered)
+    }
+
+    @Test func aDownloadKeepsGoingWhileTheDialogIsClosed() async {
+        let service = FakeDeviceService()
+        await service.setInstallDelay(.milliseconds(150))
+        let model = SystemImagesModel(service: service, pollInterval: .milliseconds(10))
+        await model.loadInstalled()
+        await model.loadCatalog()
+        model.openPicker()
+        model.toggle(image(wear36))
+        model.acceptedLicense = true
+
+        let run = Task { await model.install() }
+        _ = await eventually { model.work.isBusy }
+        model.closePicker()
+
+        #expect(!model.isPickerPresented)
+        #expect(model.work.isBusy, "closing the dialog does not stop the download")
+        await run.value
+        #expect(model.notice == "Downloaded 1 image.")
     }
 
     @Test func aSingleImageGetsASingularNotice() async {
@@ -367,7 +510,7 @@ struct SystemImagesModelTests {
     // MARK: Settings
 
     @Test func theTabsKeepTheAboutPageLast() {
-        #expect(SettingsTab.allCases == [.general, .android, .images, .about])
+        #expect(SettingsTab.allCases == [.general, .android, .images, .updates, .about])
         #expect(SettingsTab.images.title == "System Images")
     }
 
@@ -379,5 +522,11 @@ struct SystemImagesModelTests {
         _ = SettingsView(model: app)
 
         #expect(app.settingsTab == .images, "building the view must not reset the tab")
+    }
+}
+
+extension SystemImagesModel.Work {
+    fileprivate var isFailedForTest: Bool {
+        if case .failed = self { true } else { false }
     }
 }

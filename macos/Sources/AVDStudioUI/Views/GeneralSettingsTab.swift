@@ -1,15 +1,13 @@
 import AppKit
 import SwiftUI
 
-/// Appearance, where the app shows up (Dock and menu bar) and updates.
+/// Appearance and where the app shows up (Dock and menu bar). Updates have their own tab.
 struct GeneralSettingsTab: View {
     @Bindable var model: AppModel
     @AppStorage(AppSettings.showMenuBarItemKey) private var showMenuBarItem = true
     @AppStorage(AppSettings.showInDockKey) private var showInDock = true
     @AppStorage(AppSettings.appearanceKey) private var appearance = AppearanceMode.system
     @AppStorage(AppSettings.menuBarIconKey) private var menuBarIcon = MenuBarIcon.phone
-    @Environment(UpdateModel.self) private var updates: UpdateModel?
-    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Form {
@@ -44,7 +42,6 @@ struct GeneralSettingsTab: View {
                 Text("Click a device in the menu bar list to start it right away. A dot on the icon means an emulator is running.")
             }
 
-            if let updates { updatesSection(updates) }
         }
         .formStyle(.grouped)
         .frame(width: SettingsTab.general.size.width, height: SettingsTab.general.size.height)
@@ -82,29 +79,6 @@ struct GeneralSettingsTab: View {
             "The menu bar item stays on while the Dock icon is hidden, so you can always get back in."
         } else {
             "Hide either one, never both: AVD Studio always keeps a way back in."
-        }
-    }
-
-    private func updatesSection(_ updates: UpdateModel) -> some View {
-        Section {
-            LabeledContent("Version", value: updates.currentVersion.description)
-            if let release = updates.availableRelease {
-                LabeledContent("Available") {
-                    Text(release.version.description).foregroundStyle(Color.accentColor).fontWeight(.semibold)
-                }
-            }
-            Toggle(
-                "Check for updates automatically",
-                isOn: Binding(get: { updates.automaticChecks }, set: { updates.automaticChecks = $0 })
-            )
-            Button(updates.hasUpdate ? "View Update…" : "Check for Updates…") {
-                openWindow(id: "updates")
-                if !updates.hasUpdate { Task { await updates.checkForUpdates() } }
-            }
-        } header: {
-            Text("Updates")
-        } footer: {
-            Text("AVD Studio looks for new versions when it opens and every few hours, and notifies you when one is released.")
         }
     }
 }

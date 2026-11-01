@@ -17,6 +17,38 @@ struct AppModelTests {
     private var phone: VirtualDevice { SampleData.devices[0] }
     private var brokenPhone: VirtualDevice { SampleData.devices.last! }
 
+    // MARK: Settings from the sidebar
+
+    @Test func theSettingsButtonOpensOnAndroidWhenTheSdkNeedsSetup() async {
+        let model = makeModel(FakeDeviceService(toolchain: SampleData.missingToolchain))
+        await model.refresh()
+        model.settingsTab = .general
+
+        model.prepareSettingsFromSDKStatus()
+
+        #expect(model.settingsTab == .android, "that is where the SDK folder and the diagnostics are")
+    }
+
+    @Test func theSettingsButtonKeepsTheLastTabWhenTheSdkIsReady() async {
+        let model = makeModel()
+        await model.refresh()
+        model.settingsTab = .updates
+
+        model.prepareSettingsFromSDKStatus()
+
+        #expect(model.settingsTab == .updates)
+    }
+
+    @Test func theSettingsButtonDoesNotGuessBeforeTheSdkWasChecked() {
+        let model = makeModel(FakeDeviceService(toolchain: SampleData.missingToolchain))
+        model.settingsTab = .images
+
+        model.prepareSettingsFromSDKStatus()
+
+        #expect(model.hasLoaded == false)
+        #expect(model.settingsTab == .images)
+    }
+
     // MARK: Loading
 
     @Test func refreshLoadsDevicesToolchainAndRunningState() async {

@@ -17,6 +17,7 @@ public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
     case general
     case android
     case images
+    case updates
     case about
 
     public var id: String { rawValue }
@@ -26,6 +27,7 @@ public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
         case .general: "General"
         case .android: "Android"
         case .images: "System Images"
+        case .updates: "Updates"
         case .about: "About"
         }
     }
@@ -35,6 +37,7 @@ public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
         case .general: "gearshape"
         case .android: "wrench.and.screwdriver"
         case .images: "square.stack.3d.down.right"
+        case .updates: "arrow.down.circle"
         case .about: "info.circle"
         }
     }
@@ -42,9 +45,10 @@ public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
     /// Window size of the tab (the Settings window resizes to the tab shown).
     var size: CGSize {
         switch self {
-        case .general: CGSize(width: 560, height: 760)
+        case .general: CGSize(width: 560, height: 560)
         case .android: CGSize(width: 560, height: 700)
         case .images: CGSize(width: 560, height: 720)
+        case .updates: CGSize(width: 560, height: 700)
         case .about: CGSize(width: 560, height: 470)
         }
     }
@@ -80,6 +84,7 @@ public struct SettingsView: View {
         case .general: GeneralSettingsTab(model: model)
         case .android: AndroidSettingsTab(model: model)
         case .images: SystemImagesSettingsTab(model: model)
+        case .updates: UpdatesSettingsTab()
         case .about: AboutSettingsTab()
         }
     }
