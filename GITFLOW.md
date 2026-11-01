@@ -44,8 +44,8 @@ See [docs/RELEASING.md](docs/RELEASING.md) for release checks and assets.
 1. Branch `hotfix/<short-name>` from `main`, make the smallest safe fix, add tests and a changelog entry.
 2. Open a pull request into `main`. After CI and review, merge it and run **Create release** with the next patch
    version.
-3. Merge the hotfix into `develop` and sync the automated release and Homebrew commits from `main` into `develop`.
-4. Delete the hotfix branch.
+3. After the release workflow completes, merge `main` into `develop` so the fix and automated release and Homebrew
+   commits are present in future work. The repository deletes the hotfix PR branch automatically after its merge.
 
 ## Pull request targets
 
