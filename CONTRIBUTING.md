@@ -81,7 +81,8 @@ tolerance.
 
 ## Pull requests
 
-1. Branch from `main`. Keep one logical change per PR.
+1. Follow [GITFLOW.md](GITFLOW.md): feature branches start from `develop` and target it; release and hotfix branches
+   target `main`. Keep one logical change per PR.
 2. Follow the code style that is already there: Kotlin with `explicitApi()` and warnings as errors; Swift 6 with
    strict concurrency, `@Observable` models, Apple's terminology in UI strings (Settings, menu bar, Finder).
 3. Commit messages follow [Conventional Commits](https://www.conventionalcommits.org): `feat(core): …`,
@@ -99,7 +100,7 @@ goes into `LICENSES.md` with its licence.
 
 ## Releasing
 
-Maintainers only; see [docs/RELEASING.md](docs/RELEASING.md).
+Maintainers only; see [GITFLOW.md](GITFLOW.md), [VERSIONING.md](VERSIONING.md) and [docs/RELEASING.md](docs/RELEASING.md).
 
 ## License
 
