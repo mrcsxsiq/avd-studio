@@ -14,6 +14,8 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-01
+
 ### Added
 
 - **System Images** tab in Settings. It lists the installed images with the space each takes and the devices that use
@@ -118,6 +120,7 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
   `doctor` support `--json`, and `--sdk-path` / `--avd-home` (or `AVDSTUDIO_SDK_PATH` / `AVDSTUDIO_AVD_HOME`)
   override auto-detection.
 
-[Unreleased]: https://github.com/mrcsxsiq/avd-studio/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/mrcsxsiq/avd-studio/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/mrcsxsiq/avd-studio/releases/tag/v0.3.0
 [0.2.0]: https://github.com/mrcsxsiq/avd-studio/releases/tag/v0.2.0
 [0.1.0]: https://github.com/mrcsxsiq/avd-studio/releases/tag/v0.1.0
