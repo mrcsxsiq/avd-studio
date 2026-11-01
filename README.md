@@ -22,10 +22,6 @@
   </picture>
 </p>
 
-> **Status:** early software. [0.1.0 is out](https://github.com/mrcsxsiq/avd-studio/releases/latest): a DMG, the `avdstudio` CLI and a Homebrew tap.
-> The first builds are not notarized yet, so macOS may ask you to right-click the app and choose **Open** once.
-> Website: https://mrcsxsiq.github.io/avd-studio/ (and https://avdstudio.dev once the domain is connected).
-
 ## What it does
 
 - **See every emulator at a glance.** Each virtual device is a card with its own gradient, grouped in the sidebar by type: phone, foldable, tablet, Wear OS, TV, automotive, desktop and XR. Search by name, Android version or device profile.
