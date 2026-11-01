@@ -36,7 +36,7 @@
 - **Manage Android system images.** Settings > System Images lists what is installed with the room each image takes and which devices use it, downloads more Android versions from a dialog (phones, tablets, TV, Wear OS, Automotive, Desktop, XR; Apple Silicon images only) once you accept Google's license, with a progress bar while it downloads in the background, and removes the ones you no longer need. The New Device sheet links straight to it.
 - **Your folders, your rules.** Choose the SDK folder and the virtual-device folder (for example on an external SSD). Nothing is moved and Android Studio's settings are untouched.
 - **Light, dark or system theme.**
-- **Updates built in.** Shows the installed version next to the new one with the release notes (Markdown drawn properly) and an **Install** button. With Homebrew it runs the upgrade for you; otherwise it downloads the DMG from GitHub, verifies its SHA-256 and the app's signature, replaces the app and reopens it. It notifies you when a version is released, and automatic checks can be turned off.
+- **Updates built in.** Check for updates and press **Install** to apply a new version. If Homebrew manages the app, AVD Studio runs the cask upgrade in the background; otherwise it downloads the DMG from GitHub, verifies its SHA-256 and the app's signature, replaces the app and reopens it. No Terminal command needs to be copied. Release notes are shown in the app, which can also notify you when a version is released; automatic checks can be turned off.
 - **A real CLI.** `avdstudio list`, `start`, `create`, `delete`, `images`, `devices`, `doctor`, `setup` and `sdk-path`, with `--json` for scripts.
 - **No analytics, no accounts.** The only network traffic of AVD Studio itself is the optional update check against the GitHub Releases API. Android packages (setup, system images) are downloaded by Google's own `sdkmanager`, and only when you ask for them.
 
@@ -100,7 +100,7 @@ brew trust --cask mrcsxsiq/avd-studio/avd-studio
 # or, to trust everything this tap will ever publish: brew trust --tap mrcsxsiq/avd-studio
 ```
 
-Update later with `brew upgrade --cask mrcsxsiq/avd-studio/avd-studio`, or press **Install** when the app tells you a new version is out.
+Update later with `brew upgrade --cask mrcsxsiq/avd-studio/avd-studio`, or press **Install** in the update window or Settings > Updates. For a Homebrew-managed app, AVD Studio runs that cask upgrade for you. For a manually installed app, it downloads and verifies the GitHub DMG, then replaces and reopens the app. If installation fails, the app explains why and leaves the DMG available to open yourself.
 `brew untrust` takes trust back.
 
 Prefer to build it yourself? See [Build from source](#build-from-source).
