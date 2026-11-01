@@ -100,3 +100,36 @@ jobs:
       - name: actionlint
         run: |
           docker run --rm -v "$PWD:/repo" --workdir /repo rhysd/actionlint:latest -color
+
+  signed_commits:
+    name: Signed commits
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Verify every pull request commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          commits="$(gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/commits" \
+            --jq '.[] | [.sha, (.commit.verification.verified | tostring), (.commit.verification.reason // "unknown")] | @tsv')"
+          if [[ -z "$commits" ]]; then
+            echo "::error::The pull request contains no commits to verify."
+            exit 1
+          fi
+
+          failures=0
+          while IFS=$'\t' read -r sha verified reason; do
+            if [[ "$verified" != "true" ]]; then
+              echo "::error::Commit ${sha:0:7} is not verified as signed (reason: $reason)."
+              failures=1
+            else
+              echo "Verified signed commit ${sha:0:7}."
+            fi
+          done <<< "$commits"
+          exit "$failures"

@@ -15,6 +15,10 @@ AVD Studio uses Gitflow with `main` as the production branch and `develop` as th
 Use the repository's Conventional Commit format, for example `feat(macos): improve update status` or
 `fix(core): handle missing SDK metadata`.
 
+Every commit in a pull request must have a signature GitHub verifies. The **Signed commits** CI check inspects each
+commit on the PR; unsigned or unverifiable commits fail the check. Configure GPG or SSH commit signing with the key
+registered on your GitHub account before pushing.
+
 ## Normal work
 
 1. Update `develop` and branch from it: `git switch develop && git pull && git switch -c feature/<short-name>`.
@@ -44,8 +48,8 @@ See [docs/RELEASING.md](docs/RELEASING.md) for release checks and assets.
 1. Branch `hotfix/<short-name>` from `main`, make the smallest safe fix, add tests and a changelog entry.
 2. Open a pull request into `main`. After CI and review, merge it and run **Create release** with the next patch
    version.
-3. Merge the hotfix into `develop` and sync the automated release and Homebrew commits from `main` into `develop`.
-4. Delete the hotfix branch.
+3. After the release workflow completes, merge `main` into `develop` so the fix and automated release and Homebrew
+   commits are present in future work. The repository deletes the hotfix PR branch automatically after its merge.
 
 ## Pull request targets
 
