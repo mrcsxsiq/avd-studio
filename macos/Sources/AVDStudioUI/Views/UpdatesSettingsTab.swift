@@ -139,6 +139,9 @@ struct UpdatesSettingsTab: View {
                         Button("Show in Finder") { updates.revealDownload() }
                         Button("Open Installer") { updates.openInstaller() }
                     }
+                    if updates.canInstallFromGitHubInstead {
+                        Button("Install from GitHub") { updates.installFromGitHub() }
+                    }
                     if updates.installSource == .homebrew {
                         Button("Copy Brew Command") { Clipboard.copy(InstallSource.brewUpgradeCommand) }
                     }

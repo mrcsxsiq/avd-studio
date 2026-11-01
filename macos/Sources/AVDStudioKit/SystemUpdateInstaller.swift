@@ -61,8 +61,7 @@ public final class SystemUpdateInstaller: UpdateInstaller, @unchecked Sendable {
         try fileManager.createDirectory(at: mountPoint, withIntermediateDirectories: true)
         defer { try? fileManager.removeItem(at: work) }
 
-        try run(core) { try core.mountDiskImage(dmgPath: diskImage.path, mountPoint: mountPoint.path) }
-            .orThrow { InstallError.diskImage($0) }
+        try mount(diskImage, at: mountPoint, core: core)
         defer { _ = try? core.unmountDiskImage(mountPoint: mountPoint.path) }
 
         let contents = (try? fileManager.contentsOfDirectory(at: mountPoint, includingPropertiesForKeys: nil)) ?? []
@@ -92,6 +91,26 @@ public final class SystemUpdateInstaller: UpdateInstaller, @unchecked Sendable {
         } catch {
             throw InstallError.notWritable(folder.path)
         }
+    }
+
+    /// Mounts the disk image, trying again a couple of times when macOS says the disk image service is busy.
+    private static func mount(_ diskImage: URL, at mountPoint: URL, core: AvdStudioCore, attempts: Int = 3) throws {
+        for attempt in 1...attempts {
+            let outcome = try run(core) { try core.mountDiskImage(dmgPath: diskImage.path, mountPoint: mountPoint.path) }
+            if case .failure(let output) = outcome, attempt < attempts, isTransientMountFailure(output) {
+                Thread.sleep(forTimeInterval: 0.8 * Double(attempt))
+                continue
+            }
+            try outcome.orThrow { InstallError.diskImage($0) }
+            return
+        }
+    }
+
+    /// `hdiutil attach` sometimes fails with "Resource temporarily unavailable" while another image is being mounted,
+    /// and works a moment later. A file that is not a disk image never will, so that is not retried.
+    static func isTransientMountFailure(_ output: String) -> Bool {
+        let text = output.lowercased()
+        return text.contains("temporarily unavailable") || text.contains("resource busy")
     }
 
     // MARK: Version and restart
