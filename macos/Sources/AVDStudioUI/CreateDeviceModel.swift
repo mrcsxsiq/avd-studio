@@ -106,6 +106,16 @@ public final class CreateDeviceModel {
         phase = .ready
     }
 
+    /// Reads the installed images again, after the user downloaded or removed some in Settings. The current choice
+    /// is kept while it is still installed.
+    public func reloadImages() async {
+        let fresh = await service.installedSystemImages(locations: locations)
+        guard fresh != images else { return }
+        let previous = image
+        images = fresh
+        if let previous, imagesForKind.contains(previous) { image = previous } else { image = imagesForKind.first }
+    }
+
     // MARK: Actions
 
     public func create() async {

@@ -6,7 +6,7 @@ public enum SampleData {
         VirtualDevice(
             id: "Pixel_9_API_36", displayName: "Pixel 9", kind: .phone, apiLevel: "36", androidVersion: "16",
             deviceProfile: "pixel_9", abi: "arm64-v8a", hasPlayStore: true, ramMegabytes: 4096, storage: "16G",
-            diskUsageBytes: 9_600_000_000
+            diskUsageBytes: 9_600_000_000, systemImagePackage: "system-images;android-36;google_apis_playstore;arm64-v8a"
         ),
         VirtualDevice(
             id: "Pixel_9_Pro_Fold", displayName: "Pixel 9 Pro Fold", kind: .foldable, apiLevel: "35", androidVersion: "15",
@@ -15,7 +15,8 @@ public enum SampleData {
         ),
         VirtualDevice(
             id: "Pixel_Tablet_API_34", displayName: "Pixel Tablet", kind: .tablet, apiLevel: "34", androidVersion: "14",
-            deviceProfile: "pixel_tablet", abi: "arm64-v8a", ramMegabytes: 8192, storage: "32G", diskUsageBytes: 6_700_000_000
+            deviceProfile: "pixel_tablet", abi: "arm64-v8a", ramMegabytes: 8192, storage: "32G", diskUsageBytes: 6_700_000_000,
+            systemImagePackage: "system-images;android-34;google_apis_playstore;arm64-v8a"
         ),
         VirtualDevice(
             id: "Wear_Large_Round", displayName: "Wear OS Large Round", kind: .wearOS, apiLevel: "34", androidVersion: "14",
@@ -139,23 +140,59 @@ public enum SampleData {
         SystemImage(
             packagePath: "system-images;android-36;google_apis_playstore;arm64-v8a", apiLevel: "36", androidVersion: "16",
             versionLabel: "Android 16 (API 36)", tagDisplay: "Google Play", abi: "arm64-v8a", hasPlayStore: true,
-            isNativeOnAppleSilicon: true, family: .general),
+            isNativeOnAppleSilicon: true, family: .general, sizeBytes: 1_900_000_000),
         SystemImage(
             packagePath: "system-images;android-36;google_apis;arm64-v8a", apiLevel: "36", androidVersion: "16",
             versionLabel: "Android 16 (API 36)", tagDisplay: "Google APIs", abi: "arm64-v8a", hasPlayStore: false,
-            isNativeOnAppleSilicon: true, family: .general),
+            isNativeOnAppleSilicon: true, family: .general, sizeBytes: 1_800_000_000),
         SystemImage(
             packagePath: "system-images;android-36;android-tv;arm64-v8a", apiLevel: "36", androidVersion: "16",
             versionLabel: "Android 16 (API 36)", tagDisplay: "Android TV", abi: "arm64-v8a", hasPlayStore: false,
-            isNativeOnAppleSilicon: true, family: .tv),
+            isNativeOnAppleSilicon: true, family: .tv, sizeBytes: 1_400_000_000),
         SystemImage(
             packagePath: "system-images;android-34;google_apis_playstore;arm64-v8a", apiLevel: "34", androidVersion: "14",
             versionLabel: "Android 14 (API 34)", tagDisplay: "Google Play", abi: "arm64-v8a", hasPlayStore: true,
-            isNativeOnAppleSilicon: true, family: .general),
+            isNativeOnAppleSilicon: true, family: .general, sizeBytes: 1_600_000_000),
         SystemImage(
             packagePath: "system-images;android-34;google_apis;x86_64", apiLevel: "34", androidVersion: "14",
             versionLabel: "Android 14 (API 34)", tagDisplay: "Google APIs", abi: "x86_64", hasPlayStore: false,
-            isNativeOnAppleSilicon: false, family: .general),
+            isNativeOnAppleSilicon: false, family: .general, sizeBytes: 1_500_000_000),
+    ]
+
+    /// What `sdkmanager --list` offers for Apple Silicon, newest first (one of them already installed).
+    public static let availableImages: [RemoteSystemImage] = [
+        RemoteSystemImage(
+            packagePath: "system-images;android-37.0;google_apis_playstore;arm64-v8a", apiLevel: "37", androidVersion: "17",
+            versionLabel: "Android 17 (API 37)", tagDisplay: "Google Play", revision: "8.0.0", hasPlayStore: true),
+        RemoteSystemImage(
+            packagePath: "system-images;android-37.0;google_apis_playstore_ps16k;arm64-v8a", apiLevel: "37", androidVersion: "17",
+            versionLabel: "Android 17 (API 37)", tagDisplay: "Google Play (16 KB pages)", revision: "8.0.0", hasPlayStore: true,
+            usesSixteenKbPages: true),
+        RemoteSystemImage(
+            packagePath: "system-images;android-37.0;google_apis;arm64-v8a", apiLevel: "37", androidVersion: "17",
+            versionLabel: "Android 17 (API 37)", tagDisplay: "Google APIs", revision: "8.0.0"),
+        RemoteSystemImage(
+            packagePath: "system-images;android-36;google_apis_playstore;arm64-v8a", apiLevel: "36", androidVersion: "16",
+            versionLabel: "Android 16 (API 36)", tagDisplay: "Google Play", revision: "7.0.0", hasPlayStore: true, isInstalled: true),
+        RemoteSystemImage(
+            packagePath: "system-images;android-36;android-wear;arm64-v8a", apiLevel: "36", androidVersion: "16",
+            versionLabel: "Android 16 (API 36)", tagDisplay: "Wear OS", revision: "3.0.0", family: .wearOS),
+        RemoteSystemImage(
+            packagePath: "system-images;android-35;google_apis_playstore;arm64-v8a", apiLevel: "35", androidVersion: "15",
+            versionLabel: "Android 15 (API 35)", tagDisplay: "Google Play", revision: "9.0.0", hasPlayStore: true),
+        RemoteSystemImage(
+            packagePath: "system-images;android-35;google_apis;arm64-v8a", apiLevel: "35", androidVersion: "15",
+            versionLabel: "Android 15 (API 35)", tagDisplay: "Google APIs", revision: "9.0.0"),
+        RemoteSystemImage(
+            packagePath: "system-images;android-35;default;arm64-v8a", apiLevel: "35", androidVersion: "15",
+            versionLabel: "Android 15 (API 35)", tagDisplay: "Default Android", revision: "5.0.0"),
+        RemoteSystemImage(
+            packagePath: "system-images;android-canary-20261007;google_apis_playstore_ps16k;arm64-v8a", apiLevel: nil,
+            versionLabel: "Android canary-20261007 (preview)", tagDisplay: "Google Play (16 KB pages)", revision: "17.0.0",
+            hasPlayStore: true, isPreview: true, usesSixteenKbPages: true),
+        RemoteSystemImage(
+            packagePath: "system-images;android-30;aosp_atd;arm64-v8a", apiLevel: "30", androidVersion: "11",
+            versionLabel: "Android 11 (API 30)", tagDisplay: "Automated test device", revision: "2.0.0", isAutomatedTestImage: true),
     ]
 
     public static let deviceProfiles: [DeviceProfile] = [
@@ -217,6 +254,13 @@ public struct PreviewDeviceService: DeviceService {
         SetupStepResult(exitCode: 0, output: "")
     }
     public func installedSystemImages(locations: Locations) async -> [SystemImage] { SampleData.systemImages }
+    public func availableSystemImages(locations: Locations) async throws -> [RemoteSystemImage] { SampleData.availableImages }
+    public func installSystemImages(_ packages: [String], licenseAccepted: Bool, locations: Locations) async throws -> SetupStepResult {
+        SetupStepResult(exitCode: 0, output: "")
+    }
+    public func removeSystemImage(_ image: SystemImage, force: Bool, locations: Locations) async throws -> SetupStepResult {
+        SetupStepResult(exitCode: 0, output: "")
+    }
     public func deviceProfiles(locations: Locations) async throws -> [DeviceProfile] { SampleData.deviceProfiles }
     public func validateDeviceName(_ name: String, locations: Locations) async -> String? { nil }
     public func createDevice(_ request: CreateDeviceRequest, locations: Locations) async throws {}

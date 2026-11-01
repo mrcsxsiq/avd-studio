@@ -5,6 +5,7 @@ public struct RootView: View {
     @Bindable var model: AppModel
     @Environment(UpdateModel.self) private var updates: UpdateModel?
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     public init(model: AppModel) {
         self.model = model
@@ -58,7 +59,17 @@ public struct RootView: View {
             Text(message)
         }
         .sheet(item: $model.creating) { creating in
-            CreateDeviceView(model: creating) { name in Task { await model.deviceCreated(named: name) } }
+            CreateDeviceView(
+                model: creating,
+                onManageImages: {
+                    model.settingsTab = .images
+                    openSettings()
+                }
+            ) { name in Task { await model.deviceCreated(named: name) } }
+        }
+        // Images downloaded or removed in Settings show up in an open "New Device" sheet.
+        .onChange(of: model.systemImages.installed) {
+            if let creating = model.creating { Task { await creating.reloadImages() } }
         }
         .confirmationDialog(
             "Delete \(model.pendingDelete?.displayName ?? "this device")?",

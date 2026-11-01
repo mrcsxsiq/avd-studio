@@ -86,8 +86,42 @@ public final class KotlinDeviceService: DeviceService, @unchecked Sendable {
             }
             do {
                 let result = try core.runSetupStep(step: kotlinStep, sdkPathOverride: locations.sdkPath, avdHomeOverride: locations.avdHome)
-                let output = [result.standardOutput, result.standardError].filter { !$0.isEmpty }.joined(separator: "\n")
-                return SetupStepResult(exitCode: result.exitCode, output: output)
+                return Self.stepResult(from: result)
+            } catch {
+                throw ServiceError(Self.message(for: error))
+            }
+        }.value
+    }
+
+    public func availableSystemImages(locations: Locations) async throws -> [RemoteSystemImage] {
+        try await Task.detached { [self] in
+            do {
+                let images = try core.availableSystemImages(sdkPathOverride: locations.sdkPath, includeNonNative: false)
+                return images.map(Self.remoteImage(from:))
+            } catch {
+                throw ServiceError(Self.message(for: error))
+            }
+        }.value
+    }
+
+    public func installSystemImages(_ packages: [String], licenseAccepted: Bool, locations: Locations) async throws -> SetupStepResult {
+        try await Task.detached { [self] in
+            do {
+                let result = try core.installSystemImages(
+                    packages: packages, licensesAccepted: licenseAccepted, sdkPathOverride: locations.sdkPath)
+                return Self.stepResult(from: result)
+            } catch {
+                throw ServiceError(Self.message(for: error))
+            }
+        }.value
+    }
+
+    public func removeSystemImage(_ image: AVDStudioUI.SystemImage, force: Bool, locations: Locations) async throws -> SetupStepResult {
+        try await Task.detached { [self] in
+            do {
+                let result = try core.removeSystemImage(
+                    packagePath: image.packagePath, sdkPathOverride: locations.sdkPath, avdHomeOverride: locations.avdHome, force: force)
+                return Self.stepResult(from: result)
             } catch {
                 throw ServiceError(Self.message(for: error))
             }
@@ -164,8 +198,34 @@ public final class KotlinDeviceService: DeviceService, @unchecked Sendable {
             abi: image.abi,
             hasPlayStore: image.hasPlayStore,
             isNativeOnAppleSilicon: image.isNativeOnAppleSilicon,
-            family: family(from: image.family)
+            family: family(from: image.family),
+            sizeBytes: image.sizeBytes?.int64Value
         )
+    }
+
+    static func remoteImage(from image: AvailableSystemImage) -> RemoteSystemImage {
+        RemoteSystemImage(
+            packagePath: image.packagePath,
+            apiLevel: image.apiLevel?.label,
+            androidVersion: image.apiLevel?.androidVersion,
+            // Qualified, so `android-36` and `android-36-ext18` are not two identical rows.
+            versionLabel: image.qualifiedVersionLabel,
+            tagDisplay: image.tagDisplay,
+            abi: image.abi,
+            revision: image.revision,
+            hasPlayStore: image.hasPlayStore,
+            isNativeOnAppleSilicon: image.isNativeOnAppleSilicon,
+            isPreview: image.isPreview,
+            usesSixteenKbPages: image.usesSixteenKbPages,
+            isAutomatedTestImage: image.isAutomatedTestImage,
+            family: family(from: image.family),
+            isInstalled: image.isInstalled
+        )
+    }
+
+    static func stepResult(from result: CommandResult) -> SetupStepResult {
+        let output = [result.standardOutput, result.standardError].filter { !$0.isEmpty }.joined(separator: "\n")
+        return SetupStepResult(exitCode: result.exitCode, output: output)
     }
 
     static func family(from family: ImageFamily) -> AVDStudioUI.SystemImage.Family {
@@ -225,7 +285,8 @@ public final class KotlinDeviceService: DeviceService, @unchecked Sendable {
             ramMegabytes: avd.ramMegabytes?.intValue,
             storage: avd.storage,
             diskUsageBytes: avd.diskUsageBytes,
-            status: status(from: avd.health)
+            status: status(from: avd.health),
+            systemImagePackage: avd.systemImagePackage
         )
     }
 

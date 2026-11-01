@@ -267,4 +267,159 @@ struct KotlinDeviceServiceTests {
         try await service.deleteDevice(created, locations: Locations())
         #expect(await service.snapshot(locations: Locations()).devices.isEmpty)
     }
+
+    // MARK: System images: list, download and remove
+
+    private var sdkManagerLog: URL { home.appendingPathComponent("sdkmanager.log") }
+
+    /// Answers `--list` with a short canned listing (new column format) and records every other call.
+    private func installFakeSdkManager() throws {
+        let script = """
+            #!/bin/sh
+            case "$*" in
+              *--list*)
+                cat <<'LIST'
+            Installed packages:
+              emulator    37.2.13    Android Emulator
+              system-images/android-36/google_apis_playstore/arm64-v8a    7.0.0    Google Play ARM 64 v8a System Image
+            Available packages:
+              emulator    37.2.13    Android Emulator
+              system-images/android-36/google_apis_playstore/arm64-v8a    7.0.0    Google Play ARM 64 v8a System Image
+              system-images/android-37.0/google_apis_playstore/arm64-v8a    8.0.0    Google Play ARM 64 v8a System Image
+              system-images/android-37.0/google_apis_playstore/x86_64    8.0.0    Google Play Intel x86_64 Atom System Image
+              system-images/android-36/android-wear/arm64-v8a    3.0.0    Wear OS 3 ARM 64 v8a System Image
+            LIST
+                ;;
+              *) echo "$@" >> "\(sdkManagerLog.path)";;
+            esac
+            """
+        let relative = "Library/Android/sdk/cmdline-tools/latest/bin/sdkmanager"
+        try write(relative, script)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: home.appendingPathComponent(relative).path)
+    }
+
+    private func sdkManagerCalls() -> [String] {
+        ((try? String(contentsOf: sdkManagerLog, encoding: .utf8)) ?? "").split(separator: "\n").map(String.init)
+    }
+
+    @Test func listsWhatGoogleOffersForAppleSiliconAndMarksTheInstalled() async throws {
+        try installSDK(at: "Library/Android/sdk")
+        try installFakeSdkManager()
+        try write(".sdkman/candidates/java/current/bin/java")
+
+        let images = try await makeService().availableSystemImages(locations: Locations())
+
+        #expect(
+            images.map(\.packagePath) == [
+                "system-images;android-37.0;google_apis_playstore;arm64-v8a",
+                "system-images;android-36;google_apis_playstore;arm64-v8a",
+                "system-images;android-36;android-wear;arm64-v8a",
+            ], "arm64 only, newest Android first, x86_64 left out")
+        #expect(images[0].versionLabel.hasPrefix("Android 17"))
+        #expect(images[0].hasPlayStore && !images[0].isInstalled)
+        #expect(images[1].isInstalled)
+        #expect(images[2].family == .wearOS)
+        #expect(images.allSatisfy { $0.isNativeOnAppleSilicon })
+    }
+
+    @Test func listingNeedsJavaAndSaysSo() async throws {
+        try installSDK(at: "Library/Android/sdk")
+        try installFakeSdkManager()
+
+        do {
+            _ = try await makeService().availableSystemImages(locations: Locations())
+            Issue.record("expected an error without Java")
+        } catch {
+            #expect(error.localizedDescription.contains("Java"))
+        }
+    }
+
+    @Test func nothingIsDownloadedUnlessTheUserAcceptedTheLicense() async throws {
+        try installSDK(at: "Library/Android/sdk")
+        try installFakeSdkManager()
+        try write(".sdkman/candidates/java/current/bin/java")
+        let package = "system-images;android-37.0;google_apis_playstore;arm64-v8a"
+
+        await #expect(throws: ServiceError.self) {
+            try await makeService().installSystemImages([package], licenseAccepted: false, locations: Locations())
+        }
+
+        #expect(sdkManagerCalls().isEmpty, "sdkmanager was never started")
+    }
+
+    @Test func downloadsAfterAcceptingTheLicensesInThatOrder() async throws {
+        try installSDK(at: "Library/Android/sdk")
+        try installFakeSdkManager()
+        try write(".sdkman/candidates/java/current/bin/java")
+        let package = "system-images;android-37.0;google_apis_playstore;arm64-v8a"
+
+        let result = try await makeService().installSystemImages([package], licenseAccepted: true, locations: Locations())
+
+        #expect(result.isSuccess)
+        let calls = sdkManagerCalls()
+        #expect(calls.count == 2)
+        #expect(calls.first?.contains("--licenses") == true, "licenses first")
+        #expect(calls.last?.contains(package) == true, "then the package")
+    }
+
+    @Test func refusesToDownloadAnythingThatIsNotASystemImage() async throws {
+        try installSDK(at: "Library/Android/sdk")
+        try installFakeSdkManager()
+        try write(".sdkman/candidates/java/current/bin/java")
+
+        await #expect(throws: ServiceError.self) {
+            try await makeService().installSystemImages(["platform-tools"], licenseAccepted: true, locations: Locations())
+        }
+
+        #expect(sdkManagerCalls().isEmpty)
+    }
+
+    @Test func removingAnImageADeviceUsesNeedsForce() async throws {
+        try installSDK(at: "Library/Android/sdk")
+        try installFakeSdkManager()
+        try write(".sdkman/candidates/java/current/bin/java")
+        try installImage("android-36", "google_apis_playstore", "arm64-v8a")
+        try createAVD(
+            "Pixel_9",
+            target: "android-36",
+            config: "hw.device.name=pixel_9\nimage.sysdir.1=system-images/android-36/google_apis_playstore/arm64-v8a/\n")
+        let service = makeService()
+        let image = try #require(await service.installedSystemImages(locations: Locations()).first)
+
+        await #expect(throws: ServiceError.self) { try await service.removeSystemImage(image, force: false, locations: Locations()) }
+        #expect(sdkManagerCalls().isEmpty, "nothing was removed")
+
+        let result = try await service.removeSystemImage(image, force: true, locations: Locations())
+
+        #expect(result.isSuccess)
+        let calls = sdkManagerCalls()
+        #expect(calls.count == 1)
+        #expect(calls[0].contains("--uninstall") && calls[0].contains(image.packagePath))
+    }
+
+    @Test func installedImagesCarryTheirSizeOnDisk() async throws {
+        try installSDK(at: "Library/Android/sdk")
+        try installImage("android-36", "google_apis_playstore", "arm64-v8a")
+        try write(
+            "Library/Android/sdk/system-images/android-36/google_apis_playstore/arm64-v8a/userdata.img",
+            String(repeating: "x", count: 4096))
+
+        let image = try #require(await makeService().installedSystemImages(locations: Locations()).first)
+
+        #expect((image.sizeBytes ?? 0) >= 4096)
+    }
+
+    @Test func devicesKnowWhichImageTheyBootFrom() async throws {
+        try installSDK(at: "Library/Android/sdk")
+        try createAVD(
+            "Television_4K",
+            target: "android-34",
+            config: "hw.device.name=tv_4k\ntag.id=android-tv\nimage.sysdir.1=system-images/android-34/android-tv/arm64-v8a/\n")
+
+        let snapshot = await makeService().snapshot(locations: Locations())
+
+        let tv = try #require(snapshot.devices.first)
+        let package = try #require(tv.systemImagePackage)
+        #expect(samePackage(package, "system-images;android-34;android-tv;arm64-v8a"))
+    }
 }

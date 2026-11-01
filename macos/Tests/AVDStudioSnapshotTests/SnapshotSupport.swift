@@ -33,6 +33,8 @@ func assertScreenshot(
             .frame(width: size.width, height: size.height, alignment: .topLeading)
             .background(Color(nsColor: .windowBackgroundColor))
             .environment(\.colorScheme, scheme)
+            // Sizes and dates read the same on every Mac, so the references do not depend on the machine's language.
+            .environment(\.locale, Locale(identifier: "en_US"))
         let host = NSHostingView(rootView: content)
         host.frame = CGRect(origin: .zero, size: size)
         // AppKit-backed controls (List, Form) only lay out and draw once they live in a window, even an invisible one.

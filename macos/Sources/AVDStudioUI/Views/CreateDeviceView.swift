@@ -4,10 +4,13 @@ import SwiftUI
 public struct CreateDeviceView: View {
     @Bindable var model: CreateDeviceModel
     let onCreated: (String) -> Void
+    /// Opens Settings on the System Images tab, where Android versions are downloaded and removed.
+    let onManageImages: () -> Void
     @Environment(\.dismiss) private var dismiss
 
-    public init(model: CreateDeviceModel, onCreated: @escaping (String) -> Void) {
+    public init(model: CreateDeviceModel, onManageImages: @escaping () -> Void = {}, onCreated: @escaping (String) -> Void) {
         self.model = model
+        self.onManageImages = onManageImages
         self.onCreated = onCreated
     }
 
@@ -93,6 +96,7 @@ public struct CreateDeviceView: View {
                             Text(image.displayName).tag(Optional(image))
                         }
                     }
+                    Button("Get More Android Versions…", action: onManageImages).buttonStyle(.link)
                     if let image = model.image, !image.isNativeOnAppleSilicon {
                         Label(
                             "\(image.abi) images are emulated on Apple Silicon and run slowly. Prefer arm64-v8a.", systemImage: "tortoise"
@@ -137,29 +141,14 @@ public struct CreateDeviceView: View {
     }
 
     private var noImages: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Label("No system image for \(model.kind.pluralTitle.lowercased()) is installed", systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
-            Text("Install one with sdkmanager, for example:").font(.callout).foregroundStyle(.secondary)
-            HStack {
-                Text(suggestedPackage).font(.system(.callout, design: .monospaced)).textSelection(.enabled)
-                Button("Copy") { Clipboard.copy("sdkmanager \"\(suggestedPackage)\"") }.controlSize(.small)
-            }
-            Text("Then come back and choose it here.").font(.callout).foregroundStyle(.secondary)
+            Text("A virtual device boots from an Android system image. Download one, then come back and choose it here.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Button("Download Images…", action: onManageImages).buttonStyle(.borderedProminent)
         }
-    }
-
-    private var suggestedPackage: String {
-        let tag: String =
-            switch model.kind {
-            case .tv: "android-tv"
-            case .wearOS: "android-wear"
-            case .automotive: "android-automotive"
-            case .desktop: "android-desktop"
-            case .xr: "android-xr"
-            default: "google_apis_playstore"
-            }
-        return "system-images;android-36;\(tag);arm64-v8a"
     }
 
     @ViewBuilder

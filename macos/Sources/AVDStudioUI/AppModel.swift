@@ -46,8 +46,17 @@ public final class AppModel {
     /// The sheet for a new device, while it is open.
     public var creating: CreateDeviceModel?
 
+    /// Which tab Settings shows. Set it before opening Settings to land on a particular one (for example from the
+    /// "New Device" sheet, which links to the System Images tab).
+    public var settingsTab: SettingsTab = .general
+    /// Installed and downloadable system images (the System Images tab and the "New Device" sheet share it).
+    public let systemImages: SystemImagesModel
+
     public var locations: Locations {
-        didSet { saveLocations() }
+        didSet {
+            saveLocations()
+            systemImages.locations = locations
+        }
     }
 
     public init(
@@ -58,10 +67,12 @@ public final class AppModel {
         self.service = service
         self.defaults = defaults
         self.now = now
-        self.locations = Locations(
+        let initial = Locations(
             sdkPath: Self.clean(defaults.string(forKey: Keys.sdkPath)),
             avdHome: Self.clean(defaults.string(forKey: Keys.avdHome))
         )
+        self.systemImages = SystemImagesModel(service: service, locations: initial)
+        self.locations = initial
     }
 
     // MARK: Derived state
@@ -116,6 +127,7 @@ public final class AppModel {
     /// Applies a snapshot. Public so previews and tests can show a fully loaded model without async work.
     public func load(_ snapshot: DeviceSnapshot) {
         devices = snapshot.devices
+        systemImages.devices = snapshot.devices
         toolchain = snapshot.toolchain
         avdHome = snapshot.avdHome
         runningNames = Set(snapshot.running.map(\.name))

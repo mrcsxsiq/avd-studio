@@ -55,6 +55,13 @@ public protocol DeviceService: Sendable {
     func runSetupStep(_ step: SetupStep, locations: Locations) async throws -> SetupStepResult
     /// System images installed in the SDK, newest first. Never throws.
     func installedSystemImages(locations: Locations) async -> [SystemImage]
+    /// Images Google publishes that run on this Mac, with the installed ones marked (`sdkmanager --list`). Needs Java and
+    /// the network; throws with an explanation when it cannot run.
+    func availableSystemImages(locations: Locations) async throws -> [RemoteSystemImage]
+    /// Downloads and installs images. `licenseAccepted` must be true: the user, never the app, agrees to Google's licence.
+    func installSystemImages(_ packages: [String], licenseAccepted: Bool, locations: Locations) async throws -> SetupStepResult
+    /// Removes an installed image. Throws when an emulator runs from it, or when devices use it and `force` is false.
+    func removeSystemImage(_ image: SystemImage, force: Bool, locations: Locations) async throws -> SetupStepResult
     /// Hardware definitions (`avdmanager list device`). Throws when avdmanager or Java is missing.
     func deviceProfiles(locations: Locations) async throws -> [DeviceProfile]
     /// A message when the name cannot be used for a new device, or nil when it can.

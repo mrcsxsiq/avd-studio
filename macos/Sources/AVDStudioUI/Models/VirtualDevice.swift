@@ -29,6 +29,8 @@ public struct VirtualDevice: Identifiable, Hashable, Sendable {
     public let storage: String?
     public let diskUsageBytes: Int64
     public let status: Status
+    /// `system-images;android-36;google_apis_playstore;arm64-v8a`: the image the device boots from, when known.
+    public let systemImagePackage: String?
 
     public init(
         id: String,
@@ -43,7 +45,8 @@ public struct VirtualDevice: Identifiable, Hashable, Sendable {
         ramMegabytes: Int? = nil,
         storage: String? = nil,
         diskUsageBytes: Int64 = 0,
-        status: Status = .ready
+        status: Status = .ready,
+        systemImagePackage: String? = nil
     ) {
         self.id = id
         self.displayName = displayName ?? id.replacingOccurrences(of: "_", with: " ")
@@ -58,6 +61,7 @@ public struct VirtualDevice: Identifiable, Hashable, Sendable {
         self.storage = storage
         self.diskUsageBytes = diskUsageBytes
         self.status = status
+        self.systemImagePackage = systemImagePackage
     }
 
     public var name: String { id }

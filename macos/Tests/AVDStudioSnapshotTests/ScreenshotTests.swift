@@ -143,6 +143,55 @@ final class ScreenshotTests: SnapshotTestCase {
     }
 
     @MainActor
+    private func imagesModel(
+        catalog: SystemImagesModel.Catalog, work: SystemImagesModel.Work = .idle, selection: Set<String> = [],
+        acceptedLicense: Bool = false, notice: String? = nil
+    ) -> AppModel {
+        let model = SampleData.model()
+        model.systemImages.setStateForPreview(
+            installed: SampleData.systemImages, catalog: catalog, work: work, notice: notice, selection: selection,
+            acceptedLicense: acceptedLicense)
+        return model
+    }
+
+    @MainActor
+    func testSettingsSystemImagesTab() {
+        let model = imagesModel(
+            catalog: .loaded(SampleData.availableImages),
+            selection: [
+                "system-images;android-37.0;google_apis_playstore;arm64-v8a", "system-images;android-35;google_apis;arm64-v8a",
+            ],
+            acceptedLicense: true)
+        assertSettingsTab(.images, of: SystemImagesSettingsTab(model: model), named: "settings-images")
+    }
+
+    @MainActor
+    func testSettingsSystemImagesTabBeforeLookingAtGoogle() {
+        let model = imagesModel(catalog: .notLoaded)
+        assertScreenshot(
+            of: SystemImagesSettingsTab(model: model), size: SettingsTab.images.size, named: "settings-images-initial",
+            schemes: [.light])
+    }
+
+    @MainActor
+    func testSettingsSystemImagesTabWhileDownloading() {
+        let model = imagesModel(
+            catalog: .loaded(SampleData.availableImages), work: .installing(count: 2),
+            selection: ["system-images;android-37.0;google_apis_playstore;arm64-v8a"], acceptedLicense: true)
+        assertScreenshot(
+            of: SystemImagesSettingsTab(model: model), size: SettingsTab.images.size, named: "settings-images-downloading",
+            schemes: [.light])
+    }
+
+    @MainActor
+    func testSettingsSystemImagesTabWhenGoogleCannotBeReached() {
+        let model = imagesModel(catalog: .failed("sdkmanager could not fetch the list: Unknown host dl.google.com. Check your connection."))
+        assertScreenshot(
+            of: SystemImagesSettingsTab(model: model), size: SettingsTab.images.size, named: "settings-images-offline",
+            schemes: [.light])
+    }
+
+    @MainActor
     func testSettingsAboutTab() {
         assertSettingsTab(.about, of: AboutSettingsTab(), named: "settings-about")
     }
@@ -353,6 +402,13 @@ private struct FailingSetupService: DeviceService {
     func stop(_ device: VirtualDevice) async throws {}
     func setupPlan(locations: Locations) async -> SetupPlan { SampleData.setupPlan }
     func installedSystemImages(locations: Locations) async -> [SystemImage] { [] }
+    func availableSystemImages(locations: Locations) async throws -> [RemoteSystemImage] { [] }
+    func installSystemImages(_ packages: [String], licenseAccepted: Bool, locations: Locations) async throws -> SetupStepResult {
+        SetupStepResult(exitCode: 0, output: "")
+    }
+    func removeSystemImage(_ image: SystemImage, force: Bool, locations: Locations) async throws -> SetupStepResult {
+        SetupStepResult(exitCode: 0, output: "")
+    }
     func deviceProfiles(locations: Locations) async throws -> [DeviceProfile] { [] }
     func validateDeviceName(_ name: String, locations: Locations) async -> String? { nil }
     func createDevice(_ request: CreateDeviceRequest, locations: Locations) async throws {}
@@ -378,6 +434,13 @@ private struct ConfigurableCatalogService: DeviceService {
     func setupPlan(locations: Locations) async -> SetupPlan { .empty }
     func runSetupStep(_ step: SetupStep, locations: Locations) async throws -> SetupStepResult { SetupStepResult(exitCode: 0, output: "") }
     func installedSystemImages(locations: Locations) async -> [SystemImage] { images }
+    func availableSystemImages(locations: Locations) async throws -> [RemoteSystemImage] { [] }
+    func installSystemImages(_ packages: [String], licenseAccepted: Bool, locations: Locations) async throws -> SetupStepResult {
+        SetupStepResult(exitCode: 0, output: "")
+    }
+    func removeSystemImage(_ image: SystemImage, force: Bool, locations: Locations) async throws -> SetupStepResult {
+        SetupStepResult(exitCode: 0, output: "")
+    }
 
     func deviceProfiles(locations: Locations) async throws -> [DeviceProfile] {
         if let profilesError { throw ServiceError(profilesError) }

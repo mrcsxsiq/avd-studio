@@ -14,6 +14,27 @@ Groups, in this order: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Se
 
 ## [Unreleased]
 
+### Added
+
+- **System Images** tab in Settings. It lists the installed images with the space each takes and the devices that use
+  it, downloads more Android versions (Google Play, Google APIs, default, TV, Wear OS, Automotive, Desktop, XR; only
+  Apple Silicon images are offered) after you accept the Android SDK License Agreement, and removes images you no
+  longer need, naming the devices that would stop working. The list of what Google offers is only fetched when you
+  press Show Available Images. The New Device sheet links to this tab (Download Images… when a type has none, Get More
+  Android Versions… otherwise) and picks up an image the moment it is installed.
+- Command line: `avdstudio images --available [--all-abis]`, `avdstudio images install <package>… --accept-licenses`
+  and `avdstudio images remove <package> [--yes] [--force]`; `avdstudio images --json` now includes each image's size.
+
+### Changed
+
+- Installed system images are named like the ones you can download (Google TV, Google Play (16 KB pages)…) instead of
+  the text Google writes inside each image, and `avdstudio images` has a SIZE column.
+
+### Fixed
+
+- Google XR system images (`google-xr`, `ai-glasses`) were classed as phone images, so they were offered when
+  creating a phone and missing when creating an XR device.
+
 ## [0.2.0] - 2026-11-01
 
 ### Added

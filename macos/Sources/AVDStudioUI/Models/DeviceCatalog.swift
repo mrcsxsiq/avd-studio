@@ -28,12 +28,14 @@ public struct SystemImage: Identifiable, Hashable, Sendable {
     public let hasPlayStore: Bool
     public let isNativeOnAppleSilicon: Bool
     public let family: Family
+    /// Space the image takes on disk, when known.
+    public let sizeBytes: Int64?
 
     public var id: String { packagePath }
 
     public init(
         packagePath: String, apiLevel: String?, androidVersion: String?, versionLabel: String, tagDisplay: String,
-        abi: String, hasPlayStore: Bool, isNativeOnAppleSilicon: Bool, family: Family
+        abi: String, hasPlayStore: Bool, isNativeOnAppleSilicon: Bool, family: Family, sizeBytes: Int64? = nil
     ) {
         self.packagePath = packagePath
         self.apiLevel = apiLevel
@@ -44,6 +46,7 @@ public struct SystemImage: Identifiable, Hashable, Sendable {
         self.hasPlayStore = hasPlayStore
         self.isNativeOnAppleSilicon = isNativeOnAppleSilicon
         self.family = family
+        self.sizeBytes = sizeBytes
     }
 
     /// `Android 16 (API 36) · Google Play · arm64-v8a`

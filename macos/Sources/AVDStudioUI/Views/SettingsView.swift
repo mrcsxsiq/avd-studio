@@ -16,6 +16,7 @@ public enum AppSettings {
 public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
     case general
     case android
+    case images
     case about
 
     public var id: String { rawValue }
@@ -24,6 +25,7 @@ public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .general: "General"
         case .android: "Android"
+        case .images: "System Images"
         case .about: "About"
         }
     }
@@ -32,6 +34,7 @@ public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .general: "gearshape"
         case .android: "wrench.and.screwdriver"
+        case .images: "square.stack.3d.down.right"
         case .about: "info.circle"
         }
     }
@@ -41,6 +44,7 @@ public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .general: CGSize(width: 560, height: 760)
         case .android: CGSize(width: 560, height: 700)
+        case .images: CGSize(width: 560, height: 720)
         case .about: CGSize(width: 560, height: 470)
         }
     }
@@ -48,19 +52,20 @@ public enum SettingsTab: String, CaseIterable, Identifiable, Sendable {
 
 public struct SettingsView: View {
     @Bindable var model: AppModel
-    @State private var tab: SettingsTab
 
+    /// Shows the tab in `model.settingsTab`. SwiftUI rebuilds this view often, so it must not touch the selection.
     public init(model: AppModel) {
-        self.init(model: model, tab: .general)
+        self.model = model
     }
 
+    /// For screenshot tests: starts on a particular tab.
     init(model: AppModel, tab: SettingsTab) {
         self.model = model
-        self._tab = State(initialValue: tab)
+        model.settingsTab = tab
     }
 
     public var body: some View {
-        TabView(selection: $tab) {
+        TabView(selection: $model.settingsTab) {
             ForEach(SettingsTab.allCases) { tab in
                 content(for: tab)
                     .tabItem { Label(tab.title, systemImage: tab.symbolName) }
@@ -74,6 +79,7 @@ public struct SettingsView: View {
         switch tab {
         case .general: GeneralSettingsTab(model: model)
         case .android: AndroidSettingsTab(model: model)
+        case .images: SystemImagesSettingsTab(model: model)
         case .about: AboutSettingsTab()
         }
     }

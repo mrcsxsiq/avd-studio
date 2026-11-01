@@ -28,6 +28,16 @@ actor FakeDeviceService: DeviceService {
     private(set) var launches: [Launch] = []
     private(set) var stops: [String] = []
     private(set) var snapshotRequests: [Locations] = []
+    var availableImages: [RemoteSystemImage] = SampleData.availableImages
+    var availableError: ServiceError?
+    /// Exit code of the next install / removal; the output is made up from it.
+    var installExitCode: Int32 = 0
+    var installError: ServiceError?
+    var removeExitCode: Int32 = 0
+    var removeError: ServiceError?
+    private(set) var availableRequests = 0
+    private(set) var installs: [(packages: [String], licenseAccepted: Bool)] = []
+    private(set) var removals: [(package: String, force: Bool)] = []
 
     init(
         devices: [VirtualDevice] = SampleData.devices,
@@ -50,6 +60,16 @@ actor FakeDeviceService: DeviceService {
     func setProfilesError(_ error: ServiceError?) { profilesError = error }
     func setCreateError(_ error: ServiceError?) { createError = error }
     func setDeleteError(_ error: ServiceError?) { deleteError = error }
+    func setAvailableImages(_ images: [RemoteSystemImage]) { availableImages = images }
+    func setAvailableError(_ error: ServiceError?) { availableError = error }
+    func setInstall(exitCode: Int32 = 0, error: ServiceError? = nil) {
+        installExitCode = exitCode
+        installError = error
+    }
+    func setRemove(exitCode: Int32 = 0, error: ServiceError? = nil) {
+        removeExitCode = exitCode
+        removeError = error
+    }
 
     func snapshot(locations: Locations) async -> DeviceSnapshot {
         snapshotRequests.append(locations)
@@ -72,6 +92,38 @@ actor FakeDeviceService: DeviceService {
     func setupPlan(locations: Locations) async -> SetupPlan { plan }
 
     func installedSystemImages(locations: Locations) async -> [SystemImage] { images }
+
+    func availableSystemImages(locations: Locations) async throws -> [RemoteSystemImage] {
+        availableRequests += 1
+        if let availableError { throw availableError }
+        return availableImages
+    }
+
+    func installSystemImages(_ packages: [String], licenseAccepted: Bool, locations: Locations) async throws -> SetupStepResult {
+        installs.append((packages, licenseAccepted))
+        if let installError { throw installError }
+        guard installExitCode == 0 else {
+            return SetupStepResult(exitCode: installExitCode, output: "Warning: something\nError: download failed")
+        }
+        // The downloaded images show up as installed, like they would on disk.
+        for package in packages {
+            guard let remote = availableImages.first(where: { $0.packagePath == package }) else { continue }
+            images.append(
+                SystemImage(
+                    packagePath: remote.packagePath, apiLevel: remote.apiLevel, androidVersion: remote.androidVersion,
+                    versionLabel: remote.versionLabel, tagDisplay: remote.tagDisplay, abi: remote.abi,
+                    hasPlayStore: remote.hasPlayStore, isNativeOnAppleSilicon: remote.isNativeOnAppleSilicon, family: remote.family))
+        }
+        return SetupStepResult(exitCode: 0, output: "done")
+    }
+
+    func removeSystemImage(_ image: SystemImage, force: Bool, locations: Locations) async throws -> SetupStepResult {
+        removals.append((image.packagePath, force))
+        if let removeError { throw removeError }
+        guard removeExitCode == 0 else { return SetupStepResult(exitCode: removeExitCode, output: "Error: could not remove") }
+        images.removeAll { $0.packagePath == image.packagePath }
+        return SetupStepResult(exitCode: 0, output: "")
+    }
 
     func deviceProfiles(locations: Locations) async throws -> [DeviceProfile] {
         if let profilesError { throw profilesError }

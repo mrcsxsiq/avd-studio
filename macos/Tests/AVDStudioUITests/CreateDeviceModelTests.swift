@@ -37,6 +37,46 @@ struct CreateDeviceModelTests {
         #expect(model.name == "Television_1080p_API_36")
     }
 
+    @Test func picksUpAnImageDownloadedWhileTheSheetIsOpen() async {
+        let fake = FakeDeviceService()
+        await fake.setImages([])
+        let model = await makeModel(fake)
+        #expect(model.imagesForKind.isEmpty)
+        #expect(model.image == nil)
+        #expect(!model.canCreate)
+
+        await fake.setImages(SampleData.systemImages)
+        await model.reloadImages()
+
+        #expect(!model.imagesForKind.isEmpty)
+        #expect(model.image?.packagePath == "system-images;android-36;google_apis_playstore;arm64-v8a")
+        #expect(model.canCreate)
+    }
+
+    @Test func keepsTheChosenImageWhenTheListChanges() async {
+        let fake = FakeDeviceService()
+        let model = await makeModel(fake)
+        let older = model.imagesForKind.first { $0.packagePath == "system-images;android-34;google_apis_playstore;arm64-v8a" }!
+        model.image = older
+
+        await fake.setImages(Array(SampleData.systemImages.dropLast()))  // something else was removed
+        await model.reloadImages()
+
+        #expect(model.image == older, "the user's choice survives a refresh")
+    }
+
+    @Test func movesOffAnImageThatWasRemoved() async {
+        let fake = FakeDeviceService()
+        let model = await makeModel(fake)
+        let chosen = model.image!
+
+        await fake.setImages(SampleData.systemImages.filter { $0.packagePath != chosen.packagePath })
+        await model.reloadImages()
+
+        #expect(model.image != chosen)
+        #expect(model.image != nil, "it falls back to the next image of the same kind")
+    }
+
     @Test func aKindWithoutImagesCannotCreateButExplainsItself() async {
         let model = await makeModel()
 
