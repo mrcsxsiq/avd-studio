@@ -28,6 +28,7 @@ import dev.marcos.avdstudio.core.process.CommandRunner
 import dev.marcos.avdstudio.core.sdk.AndroidTool
 import dev.marcos.avdstudio.core.sdk.JavaInstallation
 import dev.marcos.avdstudio.core.sdk.JavaLocator
+import dev.marcos.avdstudio.core.sdk.SdkDownloadMonitor
 import dev.marcos.avdstudio.core.sdk.SdkLocator
 import dev.marcos.avdstudio.core.sdk.SdkManagerListParser
 import dev.marcos.avdstudio.core.sdk.ToolEnvironment
@@ -35,6 +36,7 @@ import dev.marcos.avdstudio.core.sdk.ToolchainStatus
 import dev.marcos.avdstudio.core.setup.SetupPlan
 import dev.marcos.avdstudio.core.setup.SetupPlanner
 import dev.marcos.avdstudio.core.setup.SetupStep
+import dev.marcos.avdstudio.core.update.AppUpdater
 import okio.FileSystem
 import okio.Path.Companion.toPath
 
@@ -59,6 +61,8 @@ public class AvdStudioCore internal constructor(
     private val setupPlanner = SetupPlanner(fileSystem, environment)
     private val systemImageCatalog = SystemImageCatalog(fileSystem)
     private val avdCreator = AvdCreator(fileSystem, runner)
+    private val appUpdater = AppUpdater(runner, fileSystem, setupPlanner)
+    private val downloadMonitor = SdkDownloadMonitor(fileSystem)
 
     public fun toolchainStatus(sdkPathOverride: String? = null): ToolchainStatus = sdkLocator.resolve(sdkPathOverride)
 
@@ -284,6 +288,15 @@ public class AvdStudioCore internal constructor(
         )
     }
 
+    /**
+     * How many bytes `sdkmanager` has downloaded since [sinceEpochMillis] into this SDK, read from the files it is
+     * writing (it prints no percentage when it is not in a terminal). Poll it while [installSystemImages] runs.
+     */
+    public fun sdkDownloadedBytes(
+        sinceEpochMillis: Long,
+        sdkPathOverride: String? = null,
+    ): Long = downloadMonitor.downloadedBytes(toolchainStatus(sdkPathOverride).sdkPath, sinceEpochMillis)
+
     /** Names of the virtual devices whose configuration points at [packagePath] (`;` or `/` form). */
     public fun devicesUsingSystemImage(
         packagePath: String,
@@ -320,6 +333,39 @@ public class AvdStudioCore internal constructor(
         val tool = sdkManagerOrThrow(sdkPathOverride)
         return runner.run(Command(tool.executable, listOf("--sdk_root=${tool.sdkPath}", "--uninstall", image), tool.environment))
     }
+
+    // MARK: Updating the app itself
+
+    /** True when Homebrew is installed and manages AVD Studio, so it should be the one to update it. */
+    public fun canUpdateAppWithHomebrew(): Boolean = appUpdater.canUpdateWithHomebrew()
+
+    /** Runs `brew upgrade --cask mrcsxsiq/avd-studio/avd-studio`. Can take a minute: brew refreshes its taps first. */
+    @Throws(CommandException::class)
+    public fun upgradeAppWithHomebrew(): CommandResult = appUpdater.upgradeWithHomebrew()
+
+    /** Mounts a downloaded disk image read-only at [mountPoint] (an absolute path), hidden from the Finder. */
+    @Throws(CommandException::class)
+    public fun mountDiskImage(
+        dmgPath: String,
+        mountPoint: String,
+    ): CommandResult = appUpdater.mountDiskImage(dmgPath, mountPoint)
+
+    @Throws(CommandException::class)
+    public fun unmountDiskImage(mountPoint: String): CommandResult = appUpdater.unmountDiskImage(mountPoint)
+
+    /**
+     * Copies an app bundle with `ditto`, which keeps everything its code signature depends on. Not called `copy…`:
+     * Objective-C gives methods with that prefix special memory rules and Kotlin/Native does not export them.
+     */
+    @Throws(CommandException::class)
+    public fun duplicateApplication(
+        source: String,
+        destination: String,
+    ): CommandResult = appUpdater.copyApplication(source, destination)
+
+    /** Checks that an app bundle is complete and its code signature is intact (`codesign --verify --deep --strict`). */
+    @Throws(CommandException::class)
+    public fun verifyApplicationSignature(path: String): CommandResult = appUpdater.verifyApplication(path)
 
     private fun avdManagerOrThrow(
         sdkPathOverride: String?,
