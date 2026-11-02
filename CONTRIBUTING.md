@@ -10,7 +10,7 @@ By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 - **Bugs:** open an issue with the bug template. `avdstudio doctor --json` and the app version are the most useful
   things you can attach.
 - **Features:** open an issue first for anything bigger than a small fix, so we can agree on the approach before you
-  spend time on it. The one open item on the roadmap is downloading any system image from inside the app (today `setup` installs the ones your existing devices need).
+  spend time on it.
 - **Security:** see [SECURITY.md](SECURITY.md). Please do not open public issues for vulnerabilities.
 
 ## Setup
@@ -89,7 +89,8 @@ tolerance.
    `fix(cli): …`, `docs: …`, `ci: …`, `build(deps): …`. Explain *why* in the body when it is not obvious.
    Sign every commit in the pull request with a key GitHub verifies; the **Signed commits** CI check enforces this.
 4. Update `CHANGELOG.md` under `## [Unreleased]` for anything a user can notice, `LICENSES.md` when a dependency
-   changes, and the README when a command or setting changes.
+   changes, and the README or the matching page in `docs/` ([CLI](docs/CLI.md), [user guide](docs/USER-GUIDE.md),
+   [install](docs/INSTALL.md)) when a command, setting or install step changes.
 5. Fill in the PR template: what, why, how you tested it (real output), and screenshots for UI changes.
 6. CI must be green. A maintainer reviews, may ask for changes, and squashes or rebases on merge.
 

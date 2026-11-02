@@ -17,7 +17,7 @@
 - [ ] `make lint` passes
 - [ ] `CHANGELOG.md` updated under Unreleased (if a user can notice the change)
 - [ ] `LICENSES.md` updated (if a dependency changed)
-- [ ] README / help text updated (if a command, option or setting changed)
+- [ ] README / `docs/` / help text updated (if a command, option, setting or install step changed)
 - [ ] Screenshot references re-recorded on purpose and reviewed (if a view changed) — before/after below
 
 ## Screenshots
