@@ -45,14 +45,60 @@ func assertScreenshot(
         host.layoutSubtreeIfNeeded()
         RunLoop.main.run(until: Date().addingTimeInterval(0.15))
         host.layoutSubtreeIfNeeded()
+        freezeVibrancy(in: host)
         defer { window.close() }
         assertSnapshot(
-            of: host,
-            as: .image(precision: 0.98, perceptualPrecision: 0.96, size: size),
+            of: renderAtFixedScale(host, size: size),
+            as: .image(precision: 0.98, perceptualPrecision: 0.96),
             named: "\(name)-\(scheme == .dark ? "dark" : "light")",
             file: file,
             testName: testName,
             line: line
         )
     }
+}
+
+/// Makes every translucent material (the sidebar's, for one) paint its flat fallback colour.
+///
+/// A material blends with whatever is behind the window, and for an offscreen window that is the desktop of the machine
+/// running the test, or nothing at all on a CI runner. Pinning it to `.inactive` keeps the references independent of
+/// the machine. A borderless window never becomes the key window, so on a Mac this does not change the rendering.
+@MainActor
+private func freezeVibrancy(in view: NSView) {
+    if let effect = view as? NSVisualEffectView { effect.state = .inactive }
+    for subview in view.subviews { freezeVibrancy(in: subview) }
+}
+
+/// The pixel density every reference image is drawn at.
+private let snapshotScale: CGFloat = 2
+
+/// Draws `view` into a bitmap of `snapshotScale` pixels per point, tagged Display P3, on any machine.
+///
+/// SnapshotTesting's own NSView strategy sizes the bitmap from the display the window is on. The references are
+/// recorded on a Retina Mac (2x, Display P3), but a GitHub runner has a 1x virtual display, so the same view came out
+/// at half the pixels and no reference ever matched there. Drawing into a bitmap we size and tag ourselves removes the
+/// display from the equation.
+@MainActor
+private func renderAtFixedScale(_ view: NSView, size: CGSize) -> NSImage {
+    guard
+        let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: Int(size.width * snapshotScale),
+            pixelsHigh: Int(size.height * snapshotScale),
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        )
+    else { fatalError("Could not allocate a \(size) bitmap at \(snapshotScale)x.") }
+    // Retagging keeps the (still empty) pixels and only changes the colour space everything is drawn into.
+    let rep = bitmap.retagging(with: .displayP3) ?? bitmap
+    rep.size = size  // points, so the pixel size is `size * snapshotScale`
+    view.cacheDisplay(in: view.bounds, to: rep)
+    let image = NSImage(size: size)
+    image.addRepresentation(rep)
+    return image
 }
