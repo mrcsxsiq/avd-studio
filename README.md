@@ -10,9 +10,22 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mrcsxsiq/avd-studio/actions/workflows/ci.yml"><img src="https://github.com/mrcsxsiq/avd-studio/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
-  <img src="https://img.shields.io/badge/platform-macOS%2014%2B%20(Apple%20Silicon)-lightgrey" alt="macOS 14+, Apple Silicon">
+  <a href="https://github.com/mrcsxsiq/avd-studio/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mrcsxsiq/avd-studio/ci.yml?branch=develop&amp;label=CI" alt="CI"></a>
+  <a href="https://github.com/mrcsxsiq/avd-studio/releases/latest"><img src="https://img.shields.io/github/v/release/mrcsxsiq/avd-studio?label=release" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License"></a>
+  <img src="https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&amp;logoColor=white" alt="macOS 14 or newer">
+  <img src="https://img.shields.io/badge/Apple%20Silicon-only-555555?logo=apple&amp;logoColor=white" alt="Apple Silicon only">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Kotlin%20Multiplatform-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin Multiplatform">
+  <img src="https://img.shields.io/badge/Kotlin%2FNative-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin/Native">
+  <img src="https://img.shields.io/badge/Swift%206-F05138?logo=swift&amp;logoColor=white" alt="Swift 6">
+  <img src="https://img.shields.io/badge/SwiftUI-0D96F6?logo=swift&amp;logoColor=white" alt="SwiftUI">
+  <img src="https://img.shields.io/badge/Gradle-02303A?logo=gradle&amp;logoColor=white" alt="Gradle">
+  <img src="https://img.shields.io/badge/Homebrew-FBB040?logo=homebrew&amp;logoColor=black" alt="Homebrew">
+  <img src="https://img.shields.io/badge/GitHub%20Actions-2088FF?logo=githubactions&amp;logoColor=white" alt="GitHub Actions">
+  <img src="https://img.shields.io/badge/for-Android%20Emulator-3DDC84?logo=android&amp;logoColor=white" alt="For the Android Emulator">
 </p>
 
 <p align="center">
@@ -22,19 +35,23 @@
   </picture>
 </p>
 
-## What it does
+## Highlights
 
-- **See every emulator at a glance.** Each virtual device is a card with its own gradient, grouped in the sidebar by type: phone, foldable, tablet, Wear OS, TV, automotive, desktop and XR. Search by name, Android version or device profile.
-- **Create and delete devices.** The New Device sheet (⌘N) takes a type, a hardware definition, one of your installed Android versions, a name, RAM, storage and an SD card, and turns on Google Play, the GPU and the device frame like Android Studio does. Delete asks first.
-- **Start and stop with one click or a double-click.** Per-device actions: start, stop, cold boot, wipe data and start (with confirmation), show in Finder, copy name. Emulators started from Android Studio or a terminal show up as running too.
-- **Menu bar.** Every device is listed with a play button (stopped) or a stop button (running), plus New Device…, so you can start, test and stop emulators without opening the window. Pick the icon from ten options (a phone, a tablet, a watch, a little droid…); a dot shows when something is running.
-- **Set up Android in one click.** No SDK? AVD Studio installs Google's command-line tools, a Java runtime, the emulator and the system images your devices need (through Homebrew and `sdkmanager`). Without Homebrew it gives you a script for Terminal. Already have an SDK? Point to it.
-- **Manage Android system images.** Settings > System Images lists what is installed with the room each image takes and which devices use it, downloads more Android versions from a dialog (phones, tablets, TV, Wear OS, Automotive, Desktop, XR; Apple Silicon images only) once you accept Google's license, with a progress bar while it downloads in the background, and removes the ones you no longer need. The New Device sheet links straight to it.
-- **Your folders, your rules.** Choose the SDK folder and the virtual-device folder (for example on an external SSD). Nothing is moved and Android Studio's settings are untouched.
-- **Light, dark or system theme.**
-- **Updates built in.** Check for updates and press **Install** to apply a new version. If Homebrew manages the app, AVD Studio runs the cask upgrade in the background; otherwise it downloads the DMG from GitHub, verifies its SHA-256 and the app's signature, replaces the app and reopens it. No Terminal command needs to be copied. If Homebrew cannot finish, the app says why and offers to install from GitHub instead. Release notes are shown in the app with their Markdown drawn, and it can also notify you when a version is released; automatic checks can be turned off.
-- **A real CLI.** `avdstudio list`, `start`, `create`, `delete`, `images`, `devices`, `doctor`, `setup` and `sdk-path`, with `--json` for scripts.
-- **No analytics, no accounts.** The only network traffic of AVD Studio itself is the optional update check against the GitHub Releases API. Android packages (setup, system images) are downloaded by Google's own `sdkmanager`, and only when you ask for them.
+- **See every emulator at a glance.** Gradient cards grouped by type: phone, foldable, tablet, Wear OS, TV,
+  automotive, desktop and XR. Search by name, Android version or device profile.
+- **Create, start, stop, delete.** A New Device sheet (⌘N), cold boot, wipe data, show in Finder. Emulators started
+  from Android Studio or a terminal show up as running too.
+- **Menu bar.** Every device with a play or stop button, plus New Device…, so you never open the window. Ten icons
+  to choose from.
+- **Set up Android in one click.** No SDK? AVD Studio installs the command-line tools, a Java runtime, the emulator
+  and the system images your devices need. Already have an SDK? Point to it.
+- **Manage system images.** Download more Android versions, see how much room each takes, remove the ones you
+  don't need.
+- **Updates built in.** Press **Install** and the app updates itself, through Homebrew or from a verified GitHub DMG.
+- **A real CLI.** `avdstudio` does the same from a terminal, with `--json` for scripts.
+- **No analytics, no accounts.** The only network traffic of its own is the optional update check.
+
+More in the [user guide](docs/USER-GUIDE.md).
 
 <p align="center">
   <picture>
@@ -60,156 +77,89 @@
   </picture>
 </p>
 
-## Requirements
-
-- An Apple Silicon Mac running macOS 14 (Sonoma) or newer.
-- The Android command-line tools, emulator and `adb` (AVD Studio can install them for you; see [First run](#first-run)).
-- A Java runtime for `sdkmanager`/`avdmanager` (also installed for you if missing).
-
-AVD Studio never bundles the Android SDK. It runs the tools that are on your Mac, under Google's own licence.
-
 ## Install
 
-| Way | How |
-| --- | --- |
-| DMG | Download `AVD-Studio-<version>.dmg` from [Releases](https://github.com/mrcsxsiq/avd-studio/releases), open it and drag the app to Applications. |
-| Homebrew | See below. |
+You need an Apple Silicon Mac running macOS 14 (Sonoma) or newer.
 
-**Homebrew.** This repository is its own tap, so it is added with its URL. Since Homebrew 6.0, casks and
-formulae from third-party taps only load once you trust them; installing by the **full name** trusts just that
-one item:
+**Homebrew** (this repository is its own tap; the one cask installs the app and the `avdstudio` command):
 
 ```bash
 brew tap mrcsxsiq/avd-studio https://github.com/mrcsxsiq/avd-studio
-brew install --cask mrcsxsiq/avd-studio/avd-studio   # the app and the avdstudio command
+brew install --cask mrcsxsiq/avd-studio/avd-studio
 ```
 
-The command-line tool ships inside the app, so this one cask gives you both: Homebrew links `avdstudio` into your
-`PATH`. (Versions before 0.2.0 had a separate `avdstudio` formula; it is gone.) Releases are not notarized yet, so
-the cask also clears the download quarantine flag from the app; without that macOS would block the app and kill the
-command on its first run. The DMG route does not do this: the first time, right-click the app and choose Open.
+**DMG:** download `AVD-Studio-<version>.dmg` from [Releases](https://github.com/mrcsxsiq/avd-studio/releases), open
+it and drag the app to Applications.
 
-To use the short name (`brew install --cask avd-studio`) trust the cask first:
+Releases are not notarized yet. The Homebrew cask clears the quarantine flag for you; with the DMG, right-click the
+app and choose **Open** the first time. Trusting the tap, updating and uninstalling are covered in
+[Installing and updating](docs/INSTALL.md).
 
-```bash
-brew trust --cask mrcsxsiq/avd-studio/avd-studio
-# or, to trust everything this tap will ever publish: brew trust --tap mrcsxsiq/avd-studio
-```
-
-Update later with `brew upgrade --cask mrcsxsiq/avd-studio/avd-studio`, or press **Install** in the update window or Settings > Updates. For a Homebrew-managed app, AVD Studio runs that cask upgrade for you. For a manually installed app, it downloads and verifies the GitHub DMG, then replaces and reopens the app. If something goes wrong the app explains why: when Homebrew cannot finish (its tap is updated a little after a release) it offers **Install from GitHub**, and when replacing the app fails (for example no permission to write to Applications) the downloaded DMG stays in Downloads for you to open yourself.
-`brew untrust` takes trust back.
-
-Prefer to build it yourself? See [Build from source](#build-from-source).
-
-## First run
-
-AVD Studio looks for an SDK in `ANDROID_SDK_ROOT`, `ANDROID_HOME`, Android Studio's default folder
-(`~/Library/Android/sdk`) and Homebrew's `android-commandlinetools`, in that order. Virtual devices are read from
-`~/.android/avd` (or `ANDROID_AVD_HOME`).
-
-If nothing usable is found you get a setup screen with two routes:
-
-- **Install Automatically…** lists exactly what will run (`brew install --cask android-commandlinetools`,
-  `brew install openjdk@17`, `sdkmanager …`), asks you to accept the Android SDK License Agreement, then does it
-  all and switches to the new SDK. Without Homebrew the same steps become a script you can open in Terminal.
-- **I Already Have an SDK…** lets you choose the folder.
-
-Settings → Diagnostics shows the same checks later, with a **Fix Automatically…** button when something is missing.
+AVD Studio never bundles the Android SDK: it runs the tools that are on your Mac, under Google's own licence, and
+can install them for you on first launch (see [First run](docs/USER-GUIDE.md#first-run)).
 
 ## Command line
 
-```text
-avdstudio list [--json]                      List the virtual devices
-avdstudio start <name> [--cold-boot] [--wipe-data] [--print-command]
-avdstudio create -n <name> -i <image> -d <device> [--ram MB] [--storage 16G] [--sdcard 512M] [--display-name TEXT]
-avdstudio delete <name> [--yes]              Delete a device and its data (asks unless --yes)
-avdstudio images [--json]                    System images installed in the SDK (what --image accepts)
-avdstudio images --available [--all-abis]    Images Google offers for download (needs Java and the network)
-avdstudio images install <package>… [--accept-licenses]
-                                             Download images (you accept Google's license first)
-avdstudio images remove <package> [--yes] [--force]
-                                             Remove an installed image (--force when devices use it)
-avdstudio devices [--type phone|tv|…] [--json]   Hardware definitions (what --device accepts)
-avdstudio doctor [--json]                    Check the SDK, Java and devices; prints numbered next steps
-avdstudio setup [--dry-run] [--script] [--accept-licenses]
-                                             Install what is missing (Homebrew + sdkmanager)
-avdstudio sdk-path                           Print the SDK folder in use
+```bash
+avdstudio list                      # your virtual devices
+avdstudio start my-phone            # start one (--cold-boot, --wipe-data)
+avdstudio doctor                    # check the SDK, Java and devices, with numbered next steps
+avdstudio images --available        # system images you can download
+avdstudio setup --dry-run           # what would be installed, without installing it
 ```
 
-`--sdk-path` and `--avd-home` (or `AVDSTUDIO_SDK_PATH` / `AVDSTUDIO_AVD_HOME`) override auto-detection on every
-command. Colours are only used on a terminal; `--json` output is stable for scripting. Exit status is 0 on success,
-1 when something is wrong (`doctor` treats a missing `adb` as a warning, not a failure).
+Add `--json` for scripts. Every command, option and an end-to-end example are in the
+[command line reference](docs/CLI.md).
 
-```console
-$ avdstudio doctor
-✓ Android SDK  /Users/you/Library/Android/sdk (Android Studio default)
-✓ sdkmanager  /Users/you/Library/Android/sdk/cmdline-tools/latest/bin/sdkmanager
-✓ avdmanager  /Users/you/Library/Android/sdk/cmdline-tools/latest/bin/avdmanager
-✗ emulator  Not found (expected at /Users/you/Library/Android/sdk/emulator/emulator).
-✓ adb  /Users/you/Library/Android/sdk/platform-tools/adb
-✓ Java runtime  /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
-✓ Virtual device folder  /Users/you/.android/avd — 3 device(s)
+## Built with
 
-Next steps
-  1. Install the missing SDK packages with `sdkmanager --sdk_root=/Users/you/Library/Android/sdk "emulator"`.
+| Layer | Technology | Where |
+| --- | --- | --- |
+| Logic | Kotlin Multiplatform on Kotlin/Native (`macosArm64`) with Okio. No JVM at runtime. | [`core/`](core) |
+| CLI | Kotlin/Native executable with [Clikt](https://github.com/ajalt/clikt) and kotlinx.serialization for `--json` | [`cli/`](cli) |
+| App | Swift 6, SwiftUI with `@Observable`, SwiftPM and [XcodeGen](https://github.com/yonaskolb/XcodeGen) | [`macos/`](macos) |
+| Tests | `kotlin.test`, Swift Testing, [swift-snapshot-testing](https://github.com/pointfreeco/swift-snapshot-testing) | |
+| Website | Static HTML, CSS and JS on GitHub Pages | [`website/`](website) |
+| Distribution | DMG on GitHub Releases and a Homebrew cask | [`Casks/`](Casks) |
+| Tooling | Gradle, ktlint, `swift format`, GitHub Actions, Dependabot | |
 
-Then run `avdstudio doctor` again to check.
-```
-
-## Settings
-
-| Tab | What you can change |
-| --- | --- |
-| General | Theme (System, Light or Dark); where AVD Studio appears: the Dock, the menu bar or both (never neither, so you can always get back in), and one of ten menu bar icons |
-| Android | The SDK folder (leave empty for auto-detection); the folder that holds the `.avd` files; Diagnostics (the same checks as `avdstudio doctor`) with Fix Automatically… |
-| System Images | The installed images with their size and the devices that use them; **Download More Images…** opens a dialog that asks Google for what can be downloaded (filter by device type; previews and test images are hidden until you ask): tick the images, accept the license and press Download. It downloads in the background with a progress bar (which image and how many GB have arrived) and keeps going if you close the dialog; the trash button removes an image (devices that use it are listed first, and a running emulator blocks it). |
-| Updates | The installed and latest versions, what's new in the release (Markdown rendered), **Install** (Homebrew upgrade or download from GitHub, then the app reopens), Check for Updates and the switch for automatic checks. |
-| About | The version, a **Star on GitHub** button and links to the website, changelog and license. Also reachable from the menu bar popover (the ⓘ icon) and the app menu. |
-
-## How it works
-
-```text
-core/    Kotlin Multiplatform (Kotlin/Native, macosArm64)   SDK/Java detection, AVD reader, emulator control,
-                                                            doctor, setup planner. No UI, no Java at runtime.
-cli/     Kotlin/Native executable (Clikt)                    `avdstudio`, built on core.
-macos/   Swift package + XcodeGen project                    AVDStudioUI (SwiftUI, no Kotlin), AVDStudioKit (the
-                                                            only module that imports the Kotlin framework), App/.
-website/ Static landing page                                 Deployed to GitHub Pages.
-```
-
-The core is compiled to an XCFramework and consumed by the app as a static framework. Everything the UI needs goes
-through one Swift protocol (`DeviceService`), so views and view models are tested with fakes and the Kotlin bridge is
-tested against the real core in a temporary home folder. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-Virtual devices are read straight from the `.ini`/`config.ini` files, not through `avdmanager`: it is instant, needs
-no Java, and also shows devices whose system image is missing (with a way to fix it).
+The core is compiled to an XCFramework that the app links as a static framework. The UI never imports Kotlin: it
+talks to the core through one Swift protocol, so views are tested with fakes. [Architecture](docs/ARCHITECTURE.md)
+has the diagram and the reasoning.
 
 ## Build from source
 
-You need Xcode 16 or newer (Swift 6), a JDK 17 or newer and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
-`make bootstrap` installs the last two with Homebrew.
+You need Xcode 16 or newer (Swift 6), a JDK 17 or newer and XcodeGen; `make bootstrap` installs the last two.
 
 ```bash
 git clone https://github.com/mrcsxsiq/avd-studio.git
 cd avd-studio
-make bootstrap      # xcodegen + openjdk@17 (Brewfile)
+make bootstrap      # xcodegen + openjdk@17
 make core           # Kotlin core -> macos/Frameworks/AVDStudioCore.xcframework
-make app            # Release build of the app (build/xcode/Build/Products/Release/AVD Studio.app)
-make install        # …and copy it to /Applications
-make cli            # cli/build/bin/macosArm64/releaseExecutable/avdstudio.kexe
+make app            # Release build of the app
 make test           # Kotlin + Swift tests, including screenshot tests
 ```
 
-`make help` lists every target. Open `macos/AVDStudio.xcodeproj` (generated by `make generate`) to work in Xcode.
+`make help` lists every target, and [CONTRIBUTING.md](CONTRIBUTING.md#setup) covers working in Xcode.
+
+## Documentation
+
+| Read | To learn |
+| --- | --- |
+| [Installing and updating](docs/INSTALL.md) | Homebrew trust, Gatekeeper, updates, uninstalling |
+| [User guide](docs/USER-GUIDE.md) | First run, every feature and the Settings tabs |
+| [Command line reference](docs/CLI.md) | All commands and options, exit codes, `doctor` |
+| [Architecture](docs/ARCHITECTURE.md) | How the Kotlin core, the CLI and the SwiftUI app fit together |
+| [Contributing](CONTRIBUTING.md) | Setup, test rules, pull requests |
+| [Releasing](docs/RELEASING.md) | How a release is cut, with the [Gitflow](GITFLOW.md) and [versioning](VERSIONING.md) rules behind it |
+| [Changelog](CHANGELOG.md) | What changed in every version |
+| [Security](SECURITY.md) | How to report a vulnerability |
 
 ## Contributing
 
-Bug reports, ideas and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the setup, the
-test rules and the review checklist, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for how we treat each other.
-Working with an AI agent? [AGENTS.md](AGENTS.md) has the instructions it needs.
-
-Releases follow [Semantic Versioning](https://semver.org); every user-visible change is listed in
-[CHANGELOG.md](CHANGELOG.md).
+Bug reports, ideas and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) has the setup, the test rules
+and the review checklist, and the [Code of Conduct](CODE_OF_CONDUCT.md) says how we treat each other. Working with an
+AI agent? [AGENTS.md](AGENTS.md) has the instructions it needs.
 
 ## License
 

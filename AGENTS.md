@@ -76,8 +76,9 @@ CI (`.github/workflows/ci.yml`) runs lint, Kotlin tests, Swift unit/bridge tests
 | --- | --- |
 | anything a user can notice | `CHANGELOG.md` under `## [Unreleased]` (Keep a Changelog groups) |
 | a dependency (`gradle/libs.versions.toml`, `macos/Package.swift`) | `LICENSES.md` |
-| CLI options or commands | the command's `help`/`helpEpilog`, `README.md` (Command line), CLI tests |
-| a Settings option | `SettingsView`, the screenshot references, `README.md` (Settings) |
+| CLI options or commands | the command's `help`/`helpEpilog`, `docs/CLI.md` (and the short list in `README.md` if the command is shown there), CLI tests |
+| a Settings option | `SettingsView`, the screenshot references, `docs/USER-GUIDE.md` (Settings) |
+| install, update or uninstall behaviour | `docs/INSTALL.md` (and the Install section of `README.md`) |
 | the setup/doctor commands | `Doctor` hints, `SetupPlanner`, the CLI `setup`/`doctor` output and both test suites |
 | the app icon | run `make icon` (`scripts/generate-icon.swift` is the source; the PNGs are generated) |
 | a GitHub Actions version | let Dependabot do it, or pin a real major tag you verified exists |
@@ -108,5 +109,5 @@ CI (`.github/workflows/ci.yml`) runs lint, Kotlin tests, Swift unit/bridge tests
 1. `make lint` passes.
 2. The tests that cover the change pass locally (`make test-kotlin`, `make test-unit`, and `make test-swift` when a
    view changed), and you looked at any new or changed screenshot.
-3. `CHANGELOG.md` / `LICENSES.md` / `README.md` updated per the table above.
+3. `CHANGELOG.md` / `LICENSES.md` / `README.md` / the matching page in `docs/` updated per the table above.
 4. The PR description says what changed, why, how it was tested, and includes before/after screenshots for UI.
