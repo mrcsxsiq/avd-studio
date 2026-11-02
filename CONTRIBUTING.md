@@ -76,8 +76,14 @@ tolerance.
   their own commit). Describe the visual change in the PR.
 - A screenshot test failing when you did not touch that view is a regression to investigate, not a reason to
   re-record.
-- On CI the job is informational for now: text rendering differs between macOS versions, so references recorded on a
-  developer Mac may not match the runner image. The job uploads the failing images as an artifact so you can look.
+- Every image is drawn at 2x in Display P3 (`SnapshotSupport.swift`), so a reference does not depend on the display of
+  the machine that runs the test. A CI runner has a 1x display, which is why they once never matched there.
+- The tolerance is loose on purpose (93 % of the pixels within a Lab delta E of 15). The runner draws glyph edges
+  differently from a developer Mac, so with a tighter one the job never passed. Layout, size and spacing regressions
+  still fail; a one-letter text change or a small status dot changing colour does not, so look at the PNGs when you
+  change a view.
+- On CI the job is informational for now (it reports but does not block). It uploads the failing images as an artifact
+  so you can look.
 
 ## Pull requests
 
